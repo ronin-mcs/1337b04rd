@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!-- ==================================== -->
+{{define "comment"}}
+<li class="comment">
+    <div class="header">
+        <!--            <img src="{{.UserAvatar}}" alt="no pic" width="30px" height="30px">-->
+        <img src="{{.AvatarLink}}" alt="no pic" width="50px" height="50px">
+        <b>{{.UserName}}</b>
+        {{.DataTime}}
+        {{.CommentID}}
+    </div>
+    <div class="content">
+        <a href="https://www.google.com/images/branding/googlelogo/2x/googlelogo_light_color_272x92dp.png">
+            <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_light_color_272x92dp.png"
+                alt="no pic" width="100px" height="100px">
+        </a>
+        <div class="text">
+            {{.Content}}
+        </div>
+    </div>
+    <div class="comment-actions">
+        <button type="button" onclick="toggleReplyForm('reply-{{.CommentID}}')">Reply</button>
+    </div>
+    <form id="reply-{{.CommentID}}" class="reply-form" action="/comments/{{.CommentID}}/replies" method="POST"
+        enctype="multipart/form-data">
+        <textarea name="comment" placeholder="Write your reply..."></textarea>
+        <input name="file" type="file">
+        <button type="submit">Submit</button>
+    </form>
+    <div class="comment-replies">
+        <ul class="comment-list">
+            {{range .Replies}}
+            {{template "comment" .}}
+            {{end}}
+        </ul>
+    </div>
+</li>
+{{end}}
+<!-- ==================================== -->
+
+
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #E6E9F5;
+        }
+
+        header {
+            text-align: center;
+        }
+
+        main {
+            margin: 10px;
+        }
+
+        .post .header {
+            display: flex;
+            align-items: center;
+        }
+
+        .post .content {
+            margin-top: 20px;
+            display: flex;
+        }
+
+        .post .content img {
+            width: 300px;
+        }
+
+        .text {}
+
+        .comment .header {
+            display: flex;
+            align-items: center;
+        }
+
+        .comment .content {
+            margin-top: 10px;
+            display: flex;
+        }
+
+        .comment-replies {
+            margin-left: 40px;
+            margin-top: 10px;
+        }
+
+        .comment-actions {
+            margin-top: 8px;
+        }
+
+        .reply-form {
+            display: none;
+            margin-top: 8px;
+            margin-left: 40px;
+        }
+
+        .reply-form.open {
+            display: block;
+        }
+
+        .reply-form textarea,
+        .add-comment textarea {
+            display: block;
+            width: 100%;
+            max-width: 520px;
+            min-height: 80px;
+            margin-bottom: 8px;
+        }
+    </style>
+    <script>
+        function toggleReplyForm(id) {
+            const form = document.getElementById(id);
+            if (!form) return;
+            form.classList.toggle("open");
+        }
+    </script>
+</head>
+
+<body>
+    <header>
+        <h1>Thread Title</h1>
+    </header>
+    <main>
+        <!-- Main Post -->
+        <div class="post">
+            <div class="header">
+                <!--            <img src="{{.UserAvatar}}" alt="no pic" width="30px" height="30px">-->
+                <!-- <img src="https://rickandmortyapi.com/api/character/avatar/1.jpeg" alt="no pic" width="50px"
+                    height="50px"> -->
+                <img src="{{.OP.Avatar}}" alt="no pic" width="50px" height="50px">
+                <b>{{.OP.AnonName}}</b>
+                {{.Post.CreatedAt}}
+                {{.Post.PostID}}
+            </div>
+            <div class="content">
+                <a href="https://www.google.com/images/branding/googlelogo/2x/googlelogo_light_color_272x92dp.png">
+                    <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_light_color_272x92dp.png"
+                        alt="no pic">
+                </a>
+                <div class="text">
+                    <h3>{{.Post.Title}}</h3>
+                    {{.Post.TextContent}}
+                </div>
+            </div>
+
+        </div>
+        <!-- Comments Section -->
+        <div class="comments">
+            <h2>Comments</h2>
+            <ul class="comment-list">
+                {{range .Comments}}
+                {{template "comment" .}}
+                {{end}}
+            </ul>
+            <!-- Comment Example -->
+
+        </div>
+
+        <!-- Add a Comment Section -->
+        <div class="add-comment">
+            <h3>Add a Comment</h3>
+            <form action="/posts/{{.Post.PostID}}/comments" method="POST" enctype="multipart/form-data">
+                <textarea name="comment" placeholder="Write your comment here..."></textarea>
+                <tr>
+                    <td>File</td>
+                    <td>
+                        <input name="file" type="file">
+                    </td>
+                </tr>
+                <br>
+                <input type="submit" value="Submit">
+            </form>
+        </div>
+    </main>
+</body>
+
+</html>
