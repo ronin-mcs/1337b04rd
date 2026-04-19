@@ -10,7 +10,7 @@ import (
 
 var postsLogger = slog.With("adapter", "postgres", "repository", "posts")
 
-actualWhereClause := `
+var actualWhereClause = `
 	NOT(
 		last_updated_at + INTERVAL '15 minutes' <= now() 
 		OR (
@@ -21,7 +21,7 @@ actualWhereClause := `
 		) 
 `
 
-archivedWhereClause := `
+var archivedWhereClause = `
 	(
 		last_updated_at + INTERVAL '15 minutes' <= now() 
 		OR (
@@ -110,7 +110,6 @@ func (h *PGPostsRespository) GetAll(IsActual bool) ([]models.Post, error) {
 		query += archivedWhereClause
 	}
 	query += " ORDER BY created_at DESC"
-
 
 	rows, err := h.db.Query(query)
 	if err != nil {

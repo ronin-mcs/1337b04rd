@@ -33,3 +33,14 @@ type Session struct {
 	Sessions  map[int]int `json:"sessions"`
 	// list of post_id mapping to its anon_id in this post
 }
+
+type Attachment struct {
+	AttachmentID int
+	PostID       int
+	CommentID    *int
+	// если CommentID == nil, attachment относится к посту
+	// если CommentID != nil, attachment относится к комменту
+	FileKey      string
+	OriginalName string
+	ContentType  string
+}

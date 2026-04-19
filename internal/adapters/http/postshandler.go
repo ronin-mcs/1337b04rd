@@ -77,6 +77,7 @@ func (h *PostHandler) PostByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// POST /posts/{id}/comments/{comment_id}/replies
 	if len(parts) == 4 && parts[1] == "comments" && parts[3] == "replies" {
 		commentID := parts[2]
 		if commentID == "" {

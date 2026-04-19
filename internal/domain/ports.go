@@ -1,6 +1,9 @@
 package domain
 
-import "1337b04rd/models"
+import (
+	"1337b04rd/models"
+	"io"
+)
 
 type PostRepository interface {
 	Create(post *models.Post) error
@@ -33,13 +36,19 @@ type SessionRepository interface {
 }
 
 type AvatarStorage interface {
-	SaveAvatar(avatarName string, avatarData []byte) error
-	GetAvatarLink(avatarName string) (string, error)
-	DeleteAvatar(avatarName string) error
+	GetRandomCharacterID() (int, error)
+	GetAvatar(characterID int) (io.ReadCloser, string, error)
 }
 
 type FileStorage interface {
-	SaveFile(fileName string, fileData []byte) error
-	GetFileLink(fileName string) (string, error)
-	DeleteFile(fileName string) error
+	SaveFile(fileKey string, fileData io.Reader, contentType string) error
+	GetFileLink(fileKey string) (string, error)
+	DeleteFile(fileKey string) error
+}
+
+type AttachmentRepository interface {
+	Create(attachment *models.Attachment) error
+	GetByPostID(postID int) ([]models.Attachment, error)
+	GetByCommentID(commentID int) ([]models.Attachment, error)
+	DeleteByFileKey(fileKey string) error
 }

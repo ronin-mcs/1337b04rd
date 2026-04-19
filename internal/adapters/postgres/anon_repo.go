@@ -23,7 +23,7 @@ func (h *PGAnonsRepository) Create(anon *models.Anon) error {
 		RETURNING anon_id
 	`
 
-	err := h.db.QueryRow(query, anon.Name).Scan(&anon.AnonID)
+	err := h.db.QueryRow(query, anon.AnonName).Scan(&anon.AnonID)
 	if err != nil {
 		anonlogger.Error("Create anon failed", "error", err)
 		return err

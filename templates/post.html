@@ -23,8 +23,8 @@
     <div class="comment-actions">
         <button type="button" onclick="toggleReplyForm('reply-{{.CommentID}}')">Reply</button>
     </div>
-    <form id="reply-{{.CommentID}}" class="reply-form" action="/comments/{{.CommentID}}/replies" method="POST"
-        enctype="multipart/form-data">
+    <form id="reply-{{.CommentID}}" class="reply-form" action="/posts/{{.PostID}}/comments/{{.CommentID}}/replies"
+        method="POST" enctype="multipart/form-data">
         <textarea name="comment" placeholder="Write your reply..."></textarea>
         <input name="file" type="file">
         <button type="submit">Submit</button>
