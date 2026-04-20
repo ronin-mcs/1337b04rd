@@ -12,10 +12,9 @@ type Post struct {
 }
 
 type Anon struct {
-	AnonID int
-	PostID int
-	Avatar string // store the name of character from Rick and Morty api
-	// it can be searched as "https://rickandmortyapi.com/api/character/?name=rick"
+	AnonID   int
+	PostID   int
+	Avatar   string // strore characterID as string, so we can retrieve from api and get avatar image
 	AnonName string
 }
 
@@ -31,7 +30,8 @@ type Comment struct {
 type Session struct {
 	SessionId int         `json:"session_id"`
 	Sessions  map[int]int `json:"sessions"`
-	// list of post_id mapping to its anon_id in this post
+		ExpiresAt time.Time   `json:"expires_at"`
+		// list of post_id mapping to its anon_id in this post
 }
 
 type Attachment struct {

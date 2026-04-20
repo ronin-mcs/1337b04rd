@@ -130,6 +130,7 @@ func (h *PGCommentsRepository) Delete(id int) error {
 	return nil
 }
 
+// GetByPostID retrieves all comments for a given post ID, along with maps of comments by their parent comment and the corresponding anon information for each comment.
 func (h *PGCommentsRepository) GetByPostID(postID int) ([]models.Comment, map[int][]models.Comment, map[int]models.Anon, error) {
 	query := `
 		SELECT

@@ -18,12 +18,12 @@ func NewPGAnonsRepository(db *sql.DB) *PGAnonsRepository {
 
 func (h *PGAnonsRepository) Create(anon *models.Anon) error {
 	query := `
-		INSERT INTO Anons (name) 
-		VALUES ($1)
+		INSERT INTO Anons (name, post_id, avatar) 
+		VALUES ($1, $2, $3)
 		RETURNING anon_id
 	`
 
-	err := h.db.QueryRow(query, anon.AnonName).Scan(&anon.AnonID)
+	err := h.db.QueryRow(query, anon.AnonName, anon.PostID, anon.Avatar).Scan(&anon.AnonID)
 	if err != nil {
 		anonlogger.Error("Create anon failed", "error", err)
 		return err
@@ -72,4 +72,66 @@ func (h *PGAnonsRepository) GetAll() ([]models.Anon, error) {
 		return nil, err
 	}
 	return anons, nil
+}
+
+// вроде пока не используется нигде
+func (h *PGAnonsRepository) GetAllByPostID(id int) ([]models.Anon, error) {
+	query := `
+		SELECT (anon_id, post_id, avatar, name) FROM Anons	
+		WHERE post_id = $1
+	`
+	rows, err := h.db.Query(query, id)
+	if err != nil {
+		anonlogger.Error("Get all anons by post ID failed", "error", err, "postID", id)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var anons []models.Anon
+	for rows.Next() {
+		var anon models.Anon
+		err := rows.Scan(&anon.AnonID, &anon.PostID, &anon.Avatar, &anon.AnonName)
+		if err != nil {
+			anonlogger.Error("Scan anon failed", "error", err)
+			return nil, err
+		}
+		anons = append(anons, anon)
+	}
+	if err = rows.Err(); err != nil {
+		anonlogger.Error("Iterate anons failed", "error", err)
+		return nil, err
+	}
+	return anons, nil
+}
+
+func (h *PGAnonsRepository) GetAvatarCountByPostID(id int) (map[string]int, error) {
+	query := `
+		SELECT avatar, COUNT(*)
+		FROM Anons
+		WHERE post_id = $1
+		GROUP BY avatar
+	`
+	avatar_count := make(map[string]int)
+	rows, err := h.db.Query(query, id)
+	if err != nil {
+		anonlogger.Error("Get avatar count by post ID failed", "error", err, "postID", id)
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var avatar string
+		var count int
+		err := rows.Scan(&avatar, &count)
+		if err != nil {
+			anonlogger.Error("Scan avatar count failed", "error", err)
+			return nil, err
+		}
+		avatar_count[avatar] = count
+	}
+	if err = rows.Err(); err != nil {
+		anonlogger.Error("Iterate avatar counts failed", "error", err)
+		return nil, err
+	}
+	return avatar_count, nil
 }

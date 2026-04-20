@@ -14,7 +14,7 @@ type PostService struct {
 	attachments   AttachmentRepository
 }
 
-func NewPostService(avatarStorage AvatarStorage, fileStorage FileStorage, posts PostRepository, comments CommentRepository, anons AnonRepository, sessions SessionRepository) *PostService {
+func NewPostService(avatarStorage AvatarStorage, fileStorage FileStorage, posts PostRepository, comments CommentRepository, anons AnonRepository, sessions SessionRepository, attachments AttachmentRepository) *PostService {
 	return &PostService{
 		avatarStorage: avatarStorage,
 		fileStorage:   fileStorage,
@@ -22,6 +22,7 @@ func NewPostService(avatarStorage AvatarStorage, fileStorage FileStorage, posts 
 		comments:      comments,
 		anons:         anons,
 		sessions:      sessions,
+		attachments:   attachments,
 	}
 }
 

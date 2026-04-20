@@ -25,6 +25,8 @@ type AnonRepository interface {
 	Create(anon *models.Anon) error
 	GetByID(id int) (*models.Anon, error)
 	GetAll() ([]models.Anon, error)
+	GetAllByPostID(id int) ([]models.Anon, error)
+	GetAvatarCountByPostID(id int) (map[string]int, error)
 	Delete(id int) error
 }
 
@@ -32,11 +34,13 @@ type SessionRepository interface {
 	Create(session *models.Session) error
 	GetByID(id int) (*models.Session, error)
 	GetAll() ([]models.Session, error)
+	DeleteExpired() error
 	Delete(id int) error
 }
 
 type AvatarStorage interface {
 	GetRandomCharacterID() (int, error)
+	GetAllCharacterIDs() []int
 	GetAvatar(characterID int) (io.ReadCloser, string, error)
 }
 

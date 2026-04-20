@@ -99,6 +99,12 @@ func (a *AvatarFromAPI) GetRandomCharacterID() (int, error) {
 	return a.characterIDs[index.Int64()], nil
 }
 
+func (a *AvatarFromAPI) GetAllCharacterIDs() []int {
+	ids := make([]int, len(a.characterIDs))
+	copy(ids, a.characterIDs)
+	return ids
+}
+
 func (a *AvatarFromAPI) GetAvatar(characterID int) (io.ReadCloser, string, error) {
 	link, exists := a.Characters[characterID]
 	if !exists {

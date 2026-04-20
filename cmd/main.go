@@ -1,12 +1,18 @@
 package main
 
 import (
+	httpadapter "1337b04rd/internal/adapters/http"
+	dbadapter "1337b04rd/internal/adapters/postgres"
+	"1337b04rd/internal/adapters/rickandmortyapi"
+	s3storage "1337b04rd/internal/adapters/s3"
+	"1337b04rd/internal/domain"
 	"database/sql"
 	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 )
 
 func printUsage() {
@@ -51,13 +57,38 @@ func main() {
 		os.Exit(0)
 	}
 
-	postRepo := dbadpater.NewPostRepo(db)
+	postRepo := dbadapter.NewPGPostsRepository(db)
+	commentRepo := dbadapter.NewPGCommentsRepository(db)
+	sessions := dbadapter.NewPGSessionsRepository(db)
+	anonRepo := dbadapter.NewPGAnonsRepository(db)
+	attachmentsRepo := dbadapter.NewAttachmentsRepo(db)
 
-	// ...
+	avatarStorage, err := rickandmortyapi.NewAvatarFromAPI()
+	if err != nil {
+		slog.Error("failed to initialize avatar storage", "error", err)
+		os.Exit(1)
+	}
 
-	mux := http.NewServeMux()
+	fileStorage := s3storage.NewS3Storage("http://localhost:9000", "1337b04rd")
 
-	httpadapter.NewRouter(postService)
+	postService := domain.NewPostService(avatarStorage, fileStorage, postRepo, commentRepo, anonRepo, sessions, attachmentsRepo)
+
+	if err := sessions.DeleteExpired(); err != nil {
+		slog.Error("delete expired sessions on startup failed", "error", err)
+	}
+
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			if err := sessions.DeleteExpired(); err != nil {
+				slog.Error("delete expired sessions failed", "error", err)
+			}
+		}
+	}()
+
+	mux := httpadapter.NewRouter(postService)
 
 	// Start server
 	addr := fmt.Sprintf(":%d", *port)

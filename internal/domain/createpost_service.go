@@ -27,9 +27,9 @@ func (h *PostService) CreatePost(post *models.Post, filename_filedata map[string
 		}
 
 		attachements = append(attachements, models.Attachment{
-			AtttachmentID: 0,
+			AtttachmentID: 0, // will be set in repo
 			PostID:        post.ID,
-			CommnentID:    nil,
+			CommnentID:    nil, // this is for post attachments, so commentID is nil
 			FileKey:       fileKey,
 			OriginalName:  filename,
 			ContentType:   contentType,
@@ -52,8 +52,8 @@ func (h *PostService) CreatePost(post *models.Post, filename_filedata map[string
 	anon := &models.Anon{
 		AnonID:   0,
 		PostID:   post.ID,
-		Avatar:   characterID, // will be set in repo
-		AnonName: anonName,    // will be set in repo
+		Avatar:   fmt.Sprintf("%d", characterID),
+		AnonName: anonName,
 	}
 	err = h.anons.Create(anon)
 	if err != nil {
