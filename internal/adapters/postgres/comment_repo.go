@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"time"
 )
 
 var commentsLogger = slog.With("adapter", "postgres", "repository", "comments")
@@ -18,9 +19,11 @@ func NewPGCommentsRepository(db *sql.DB) *PGCommentsRepository {
 }
 
 func (h *PGCommentsRepository) Create(comment *models.Comment) error {
+	comment.CreatedAt = time.Now().UTC()
+
 	query := `
-		INSERT INTO comments (post_id, addressed_to, text_content, anon_id)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO comments (post_id, addressed_to, text_content, anon_id, created_at)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING comment_id, created_at
 	`
 
@@ -30,6 +33,7 @@ func (h *PGCommentsRepository) Create(comment *models.Comment) error {
 		comment.AddressedTo,
 		comment.TextContent,
 		comment.AnonID,
+		comment.CreatedAt,
 	).Scan(&comment.CommentID, &comment.CreatedAt)
 	if err != nil {
 		commentsLogger.Error("create failed", "post_id", comment.PostID, "addressed_to", comment.AddressedTo, "error", err)
@@ -152,6 +156,10 @@ func (h *PGCommentsRepository) GetByPostID(postID int) ([]models.Comment, map[in
 
 	rows, err := h.db.Query(query, postID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			commentsLogger.Info("no comments", "post_id", postID, "error", err)
+			return []models.Comment{}, nil, nil, nil
+		}
 		commentsLogger.Error("get by post id failed", "post_id", postID, "error", err)
 		return nil, nil, nil, err
 	}

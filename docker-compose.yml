@@ -1,0 +1,60 @@
+version: "3.9"
+
+services:
+  app:
+    build: .
+    volumes: 
+      - .:/app
+    command: go run ./cmd/
+    container_name: 1337b04rd
+    ports:
+      - "8080:8080"
+    depends_on:
+      - triple-s
+      - postgres
+    environment:
+      S3_ENDPOINT: http://triple-s:9000
+      S3_Bucket: 1337b04rd
+
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_NAME: app
+    networks:
+      - app-network
+
+  triple-s:
+    build: 
+      context: ./triple-s
+    container_name: triple-s
+    ports:
+      - "9000:9000"
+    volumes:
+      - triple-s-data:/data
+    networks:
+      - app-network
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - app-network
+
+
+volumes:
+  triple-s-data:
+  postgres-data:
+
+networks:
+  app-network:

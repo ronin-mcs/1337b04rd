@@ -45,7 +45,7 @@ func (h *separatorHandler) WithGroup(name string) slog.Handler {
 	}
 }
 
-func setupLogging(path string) (func() error, error) {
+func SetupLogging(path string) (func() error, error) {
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
 	if err != nil {
 		return nil, err

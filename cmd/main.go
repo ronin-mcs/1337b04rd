@@ -13,37 +13,58 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	_ "github.com/lib/pq"
 )
 
 func printUsage() {
 	fmt.Println(`hacker board
-
 Usage:
   1337b04rd [--port <N>]  
   1337b04rd --help
 
 Options:
   --help       Show this screen.
-  --port N     Port number.
-`)
+  --port N     Port number.`)
 }
 
 func main() {
-	closeLogs, err := setupLogging("lastrunlogs.txt")
+	closeLogs, err := SetupLogging("lastrunlogs.txt")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to setup logging: %v\n", err)
 		os.Exit(1)
 	}
 	defer closeLogs()
 
-	db, err := sql.Open("postgres", "host=db port=5432 user=latte password=latte dbname=frappuccino sslmode=disable")
+	// dsn := fmt.Sprintf(
+	// 	"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+	// 	os.Getenv("DB_HOST"),
+	// 	os.Getenv("DB_PORT"),
+	// 	os.Getenv("DB_USER"),
+	// 	os.Getenv("DB_PASSWORD"),
+	// 	os.Getenv("DB_NAME"),
+	// )
+
+	// print(dsn)
+
+	// db, err := sql.Open("postgres", dsn)
+	db, err := sql.Open("postgres", "host=localhost port=5432 user=user password=password dbname=app sslmode=disable")
 	if err != nil {
 		slog.Error("failed to open database", "error", err)
 		os.Exit(1)
 	}
 
-	if err := db.Ping(); err != nil {
-		slog.Error("failed to ping database", "error", err)
+	for i := 0; i < 2; i++ {
+		err = db.Ping()
+		if err == nil {
+			break
+		}
+
+		time.Sleep(1 * time.Second)
+	}
+
+	if err != nil {
+		slog.Error("failed to connect to db", "error", err)
 		os.Exit(1)
 	}
 
@@ -69,6 +90,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	// S3_ENDPOINT := os.Getenv("S3_ENDPOINT")
+	// S3_BUCKET := os.Getenv("S3_BUCKET")
+	// fileStorage := s3storage.NewS3Storage(S3_ENDPOINT, S3_BUCKET)
 	fileStorage := s3storage.NewS3Storage("http://localhost:9000", "1337b04rd")
 
 	postService := domain.NewPostService(avatarStorage, fileStorage, postRepo, commentRepo, anonRepo, sessions, attachmentsRepo)
@@ -89,6 +113,7 @@ func main() {
 	}()
 
 	mux := httpadapter.NewRouter(postService)
+	fmt.Println("Server started on port 8080")
 
 	// Start server
 	addr := fmt.Sprintf(":%d", *port)

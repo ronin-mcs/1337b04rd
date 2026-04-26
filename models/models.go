@@ -28,10 +28,10 @@ type Comment struct {
 }
 
 type Session struct {
-	SessionId int         `json:"session_id"`
+	SessionID int         `json:"session_id"`
 	Sessions  map[int]int `json:"sessions"`
-		ExpiresAt time.Time   `json:"expires_at"`
-		// list of post_id mapping to its anon_id in this post
+	ExpiresAt time.Time   `json:"expires_at"`
+	// list of post_id mapping to its anon_id in this post
 }
 
 type Attachment struct {
@@ -40,7 +40,11 @@ type Attachment struct {
 	CommentID    *int
 	// если CommentID == nil, attachment относится к посту
 	// если CommentID != nil, attachment относится к комменту
+
+	// если CommentID == 0, attachment относится к посту
+	// если CommentID != 0, attachment относится к комменту
 	FileKey      string
 	OriginalName string
 	ContentType  string
+	CreatedAt    time.Time
 }

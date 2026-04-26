@@ -3,6 +3,7 @@ package httpadapter
 import (
 	"1337b04rd/internal/domain"
 	"1337b04rd/models"
+	"bytes"
 	"errors"
 	"fmt"
 	"html/template"
@@ -32,45 +33,18 @@ type PostPageData struct {
 
 // done
 func (h *PostHandler) getPosts(w http.ResponseWriter, r *http.Request, page, limit int) {
-
-	file, err := os.Open("templates/catalog.html")
-	if err != nil {
-		httpAdapterLogger.Error("failed to open template file", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
-	}
-	defer file.Close()
-
 	posts, err := h.postService.GetActualPosts()
 	if err != nil {
-		http.Error(w, "failed to get posts", http.StatusInternalServerError)
+		h.RenderError(w, models.StatusFromError(err), "failed to get posts")
 		return
 	}
 
 	if len(posts) == 0 {
-		data := CatalogPageData{
-			Posts: nil,
-			Title: "Catalog",
-			Error: "No posts found",
-		}
-
-		tmpl, err := template.ParseFiles("templates/catalog.html")
-		if err != nil {
-			httpAdapterLogger.Error("failed to parse template file", "error", err)
-			http.Error(w, "internal server error", http.StatusInternalServerError)
-			return
-		}
-
-		err = tmpl.Execute(w, data)
-		if err != nil {
-			httpAdapterLogger.Error("failed to execute template", "error", err)
-			http.Error(w, "internal server error", http.StatusInternalServerError)
-			return
-		}
+		h.RenderError(w, http.StatusNotFound, "No posts found")
 		return
 	}
 
-	pages := len(posts) / limit
+	pages := (len(posts) + limit - 1) / limit // round up
 	if page > pages {
 		httpAdapterLogger.Warn("requested page exceeds total pages. It will redirect to last page automatically.", "requested_page", page, "total_pages", pages)
 		http.Redirect(w, r, fmt.Sprintf("/posts?page=%d&limit=%d", pages, limit), http.StatusMovedPermanently)
@@ -84,14 +58,14 @@ func (h *PostHandler) getPosts(w http.ResponseWriter, r *http.Request, page, lim
 
 	postViews, err := h.postService.ConstructCatalogPostViews(posts)
 	if err != nil {
-		http.Error(w, "failed to construct post views", http.StatusInternalServerError)
+		h.RenderError(w, models.StatusFromError(err), "failed to construct post views")
 		return
 	}
 
 	tmpl, err := template.ParseFiles("templates/catalog.html")
 	if err != nil {
-		httpAdapterLogger.Error("failed to parse template file", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		httpAdapterLogger.Error("failed to parse template file", "error", err, "template_name", "catalog.html")
+		h.RenderError(w, models.StatusFromError(err), "internal server error")
 		return
 	}
 
@@ -103,8 +77,8 @@ func (h *PostHandler) getPosts(w http.ResponseWriter, r *http.Request, page, lim
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		httpAdapterLogger.Error("failed to execute template", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		httpAdapterLogger.Error("failed to execute template", "error", err, "template_name", "catalog.html")
+		h.RenderError(w, models.StatusFromError(err), "internal server error")
 		return
 	}
 }
@@ -123,32 +97,38 @@ func (h *PostHandler) createPost(w http.ResponseWriter, r *http.Request) {
 		var maxBytesErr *http.MaxBytesError
 		if errors.As(err, &maxBytesErr) {
 			httpAdapterLogger.Warn("request body too large", "error", err)
-			http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+			h.RenderError(w, http.StatusRequestEntityTooLarge, "request body too large")
 			return
 		}
 
 		httpAdapterLogger.Error("failed to parse multipart form", "error", err)
-		http.Error(w, "failed to parse form", http.StatusBadRequest)
+		h.RenderError(w, http.StatusBadRequest, "failed to parse form")
 		return
 	}
 	defer r.MultipartForm.RemoveAll()
 
-	title := r.FormValue("title")
-	text := r.FormValue("text")
+	title := r.FormValue("subject")
+	text := r.FormValue("comment")
 
 	files := make(map[string]io.Reader)
 
 	for _, fileHeader := range r.MultipartForm.File["files"] {
 		file, err := fileHeader.Open()
-		if err != nil {
-			http.Error(w, "failed to open uploaded file", http.StatusBadRequest)
+		var pe *os.PathError
+		if errors.As(err, &pe) {
+			// Системная ошибка (права, диск) — 500
+			h.RenderError(w, http.StatusInternalServerError, "failed to open uploaded file")
+			return
+		} else if err != nil {
+			// Вероятно, повреждённый файл от клиента — 400
+			h.RenderError(w, http.StatusBadRequest, "invalid uploaded file")
 			return
 		}
 		defer file.Close()
 
 		if _, ok := files[fileHeader.Filename]; ok {
 			httpAdapterLogger.Warn("duplicate filename in uploaded files. They will be named with the corresponding dates", "filename", fileHeader.Filename)
-			files[fmt.Sprintf("%s_%d", fileHeader.Filename, time.Now().Unix())] = file
+			files[fmt.Sprintf("%s_%d", fileHeader.Filename, time.Now().UTC().Unix())] = file
 			continue
 		}
 		files[fileHeader.Filename] = file
@@ -162,7 +142,7 @@ func (h *PostHandler) createPost(w http.ResponseWriter, r *http.Request) {
 
 	postID, err := h.postService.CreatePost(post, files)
 	if err != nil {
-		http.Error(w, "failed to create post", http.StatusInternalServerError)
+		h.RenderError(w, models.StatusFromError(err), "failed to create post")
 		return
 	}
 
@@ -170,27 +150,46 @@ func (h *PostHandler) createPost(w http.ResponseWriter, r *http.Request) {
 }
 
 // done
-func (h *PostHandler) getPostByID(w http.ResponseWriter, r *http.Request, postID string) {
-	file, err := os.Open("templates/post.html")
+func (h *PostHandler) getPostPageByID(w http.ResponseWriter, postID string, isActual bool) {
+	id, err := strconv.Atoi(postID)
 	if err != nil {
-		httpAdapterLogger.Error("failed to open template file", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		http.Error(w, "invalid post id", http.StatusBadRequest)
+		h.RenderError(w, http.StatusInternalServerError, "invalid post id")
 		return
 	}
-	defer file.Close()
 
-	post, err := h.postService.GetActualPostByID(postID)
+	templateName := "archive-post.html"
+	if isActual {
+		templateName = "post.html"
+	}
+
+	var post *models.Post
+	if isActual {
+		post, err = h.postService.GetActualPostByID(id)
+	} else {
+		post, err = h.postService.GetArchivedPostByID(id)
+	}
+
+	if err == models.ErrPostIsArchived {
+		h.RenderError(w, models.StatusFromError(err), "Post is not found")
+	}
+
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		h.RenderError(w, models.StatusFromError(err), "failed to get post")
 		return
 	}
 
 	postView, err := h.postService.ConstructPostPagePostView(*post)
+	if err != nil {
+		httpAdapterLogger.Error("failed to construct post view", "error", err)
+		h.RenderError(w, models.StatusFromError(err), "failed to construct post view")
+		return
+	}
 
-	tmpl, err := template.ParseFiles("templates/post.html")
+	tmpl, err := template.ParseFiles(fmt.Sprint("templates/", templateName))
 	if err != nil {
 		httpAdapterLogger.Error("failed to parse template file", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		h.RenderError(w, http.StatusInternalServerError, "failed to parse template file")
 		return
 	}
 
@@ -199,12 +198,14 @@ func (h *PostHandler) getPostByID(w http.ResponseWriter, r *http.Request, postID
 		Error: "",
 	}
 
-	err = tmpl.Execute(w, data)
+	var buf bytes.Buffer // чтоб error.html заменял неправильный шаблон
+	err = tmpl.Execute(&buf, data)
 	if err != nil {
 		httpAdapterLogger.Error("failed to execute template", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		h.RenderError(w, http.StatusInternalServerError, "failed to execute template")
 		return
 	}
+	buf.WriteTo(w)
 }
 
 // done
@@ -212,17 +213,18 @@ func (h *PostHandler) createCommentToPost(w http.ResponseWriter, r *http.Request
 	// парсим postID
 	id, err := strconv.Atoi(postID)
 	if err != nil {
-		http.Error(w, "invalid post id", http.StatusBadRequest)
+		h.RenderError(w, http.StatusInternalServerError, "invalid post id")
 		return
 	}
 
 	var addressedTo int
 	if commentID == "" {
-		addressedTo = id
+		// addressedTo = id
+		addressedTo = 0
 	} else {
 		addressedTo, err = strconv.Atoi(commentID)
 		if err != nil {
-			http.Error(w, "invalid comment id", http.StatusBadRequest)
+			h.RenderError(w, http.StatusInternalServerError, "invalid comment id")
 			return
 		}
 	}
@@ -237,12 +239,12 @@ func (h *PostHandler) createCommentToPost(w http.ResponseWriter, r *http.Request
 		var maxBytesErr *http.MaxBytesError
 		if errors.As(err, &maxBytesErr) {
 			httpAdapterLogger.Warn("request body too large", "postID", postID, "AddressedTo", addressedTo, "error", err)
-			http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+			h.RenderError(w, http.StatusRequestEntityTooLarge, "request body too large")
 			return
 		}
 
 		httpAdapterLogger.Error("failed to parse multipart form", "postID", postID, "AddressedTo", addressedTo, "error", err)
-		http.Error(w, "failed to parse form", http.StatusBadRequest)
+		h.RenderError(w, http.StatusInternalServerError, "failed to parse multipart form")
 		return
 	}
 	defer r.MultipartForm.RemoveAll()
@@ -253,17 +255,29 @@ func (h *PostHandler) createCommentToPost(w http.ResponseWriter, r *http.Request
 
 	files := make(map[string]io.Reader)
 
+	if text == "" {
+		httpAdapterLogger.Warn("empty comment", "postID", postID, "AddressedTo", addressedTo)
+		h.RenderError(w, http.StatusBadRequest, "empty comment")
+		return
+	}
+
 	for _, fileHeader := range r.MultipartForm.File["files"] {
 		file, err := fileHeader.Open()
-		if err != nil {
-			http.Error(w, "failed to open uploaded file", http.StatusBadRequest)
+		var pe *os.PathError
+		if errors.As(err, &pe) {
+			// Системная ошибка (права, диск) — 500
+			h.RenderError(w, http.StatusInternalServerError, "failed to open uploaded file")
+			return
+		} else if err != nil {
+			// Вероятно, повреждённый файл от клиента — 400
+			h.RenderError(w, http.StatusBadRequest, "invalid uploaded file")
 			return
 		}
 		defer file.Close()
 
 		if _, ok := files[fileHeader.Filename]; ok {
 			httpAdapterLogger.Warn("duplicate filename in uploaded files. They will be named with the corresponding dates", "filename", fileHeader.Filename)
-			files[fmt.Sprintf("%s_%d", fileHeader.Filename, time.Now().Unix())] = file
+			files[fmt.Sprintf("%s_%d", fileHeader.Filename, time.Now().UTC().Unix())] = file
 			continue
 		}
 		files[fileHeader.Filename] = file
@@ -272,12 +286,12 @@ func (h *PostHandler) createCommentToPost(w http.ResponseWriter, r *http.Request
 	// ===============================================================================
 	// reading sessionID
 	sessionID, err := h.readSessionIDFromCookie(r)
-	if err.Error() == "no session cookie found" {
+	if err != nil && errors.Is(err, models.ErrNoSession) {
 		httpAdapterLogger.Warn("treating user as anonymous due to missing session cookie", "postID", postID, "error", err)
 		sessionID = h.setSessionCookie(w) // set a session cookie with session ID picked by repo or 0 for anonymous users
 	}
 
-	if err != nil && err.Error() != "no session cookie found" {
+	if err != nil && !errors.Is(err, models.ErrNoSession) {
 		httpAdapterLogger.Warn("failed to read session ID from cookie", "postID", postID, "error", err)
 		sessionID = 0 // treat as anonymous
 	}
@@ -293,7 +307,7 @@ func (h *PostHandler) createCommentToPost(w http.ResponseWriter, r *http.Request
 
 	err = h.postService.CreateComment(comment, files, sessionID)
 	if err != nil {
-		http.Error(w, "failed to create comment", http.StatusInternalServerError)
+		h.RenderError(w, models.StatusFromError(err), "failed to create comment")
 		return
 	}
 
@@ -302,65 +316,39 @@ func (h *PostHandler) createCommentToPost(w http.ResponseWriter, r *http.Request
 
 // done
 func (h *PostHandler) getArchive(w http.ResponseWriter, r *http.Request, page, limit int) {
-	file, err := os.Open("templates/archive.html")
-	if err != nil {
-		httpAdapterLogger.Error("failed to open template file", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
-		return
-	}
-	defer file.Close()
-
 	posts, err := h.postService.GetArchivedPosts()
 	if err != nil {
-		http.Error(w, "failed to get posts", http.StatusInternalServerError)
+		h.RenderError(w, models.StatusFromError(err), "failed to get posts")
 		return
 	}
 
 	if len(posts) == 0 {
-		data := CatalogPageData{
-			Posts: nil,
-			Title: "Catalog",
-			Error: "No posts found",
-		}
-
-		tmpl, err := template.ParseFiles("templates/catalog.html")
-		if err != nil {
-			httpAdapterLogger.Error("failed to parse template file", "error", err)
-			http.Error(w, "internal server error", http.StatusInternalServerError)
-			return
-		}
-
-		err = tmpl.Execute(w, data)
-		if err != nil {
-			httpAdapterLogger.Error("failed to execute template", "error", err)
-			http.Error(w, "internal server error", http.StatusInternalServerError)
-			return
-		}
+		h.RenderError(w, http.StatusNotFound, "No posts found")
 		return
 	}
 
-	pages := len(posts) / limit
+	pages := (len(posts) + limit - 1) / limit
 	if page > pages {
 		httpAdapterLogger.Warn("requested page exceeds total pages. It will redirect to last page automatically.", "requested_page", page, "total_pages", pages)
-		http.Redirect(w, r, fmt.Sprintf("/posts?page=%d&limit=%d", pages, limit), http.StatusMovedPermanently)
+		http.Redirect(w, r, fmt.Sprintf("/archive?page=%d&limit=%d", pages, limit), http.StatusMovedPermanently)
 	}
 	if page < 1 {
 		httpAdapterLogger.Warn("requested page is less than 1. It will redirect to first page automatically.", "requested_page", page)
-		http.Redirect(w, r, fmt.Sprintf("/posts?page=1&limit=%d", limit), http.StatusMovedPermanently)
+		http.Redirect(w, r, fmt.Sprintf("/archive?page=1&limit=%d", limit), http.StatusMovedPermanently)
 	}
 
 	posts = posts[(page-1)*limit : min(page*limit, len(posts))]
 
 	postViews, err := h.postService.ConstructCatalogPostViews(posts)
 	if err != nil {
-		http.Error(w, "failed to construct post views", http.StatusInternalServerError)
+		h.RenderError(w, models.StatusFromError(err), "failed to construct post views")
 		return
 	}
 
 	tmpl, err := template.ParseFiles("templates/catalog.html")
 	if err != nil {
-		httpAdapterLogger.Error("failed to parse template file", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		httpAdapterLogger.Error("failed to parse template file", "error", err, "template_name", "archive.html")
+		h.RenderError(w, models.StatusFromError(err), "internal server error")
 		return
 	}
 
@@ -372,8 +360,8 @@ func (h *PostHandler) getArchive(w http.ResponseWriter, r *http.Request, page, l
 
 	err = tmpl.Execute(w, data)
 	if err != nil {
-		httpAdapterLogger.Error("failed to execute template", "error", err)
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		httpAdapterLogger.Error("failed to execute template", "error", err, "template_name", "archive.html")
+		h.RenderError(w, models.StatusFromError(err), "internal server error")
 		return
 	}
 }
@@ -417,4 +405,20 @@ func (h *PostHandler) setSessionCookie(w http.ResponseWriter) int {
 	})
 	return sessionID
 
+}
+
+func (h *PostHandler) RenderError(w http.ResponseWriter, code int, message string) {
+	w.WriteHeader(code)
+	templateName := "error.html"
+	tmpl, err := template.ParseFiles(fmt.Sprint("templates/", templateName))
+	if err != nil {
+		httpAdapterLogger.Error("failed to parse template file", "error", err)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	tmpl.ExecuteTemplate(w, templateName, map[string]interface{}{
+		"Code":    code,
+		"Message": message,
+	})
 }

@@ -8,10 +8,16 @@ import (
 	"log/slog"
 	"math/big"
 	"net/http"
+	"strconv"
 	"time"
 )
 
 const charactersURL = "https://rickandmortyapi.com/api/character"
+
+const (
+	charactersPageDelay = 200 * time.Millisecond
+	maxFetchRetries     = 5
+)
 
 var imagelogger = slog.With("adapter", "rickandmortyapi")
 
@@ -22,7 +28,12 @@ type AvatarFromAPI struct {
 }
 
 type charactersResponse struct {
-	Results []character `json:"results"`
+	Info    charactersInfo `json:"info"`
+	Results []character    `json:"results"`
+}
+
+type charactersInfo struct {
+	Next *string `json:"next"`
 }
 
 type character struct {
@@ -44,36 +55,96 @@ func NewAvatarFromAPI() (*AvatarFromAPI, error) {
 }
 
 func fetchCharacters(url string) (map[int]string, error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		imagelogger.Error("failed to fetch characters from API", "error", err)
-		return nil, fmt.Errorf("get characters: %w", err)
-	}
-	defer resp.Body.Close()
+	var allCharacters []character
+	client := &http.Client{Timeout: 10 * time.Second}
 
-	if resp.StatusCode != http.StatusOK {
-		imagelogger.Error("unexpected status code when fetching characters", "status_code", resp.StatusCode)
-		return nil, fmt.Errorf("get characters: unexpected status %s", resp.Status)
+	// for url != "" {
+	for range 1 {
+		var resp *http.Response
+		var err error
+
+		for attempt := 0; attempt <= maxFetchRetries; attempt++ {
+			resp, err = client.Get(url)
+			if err != nil {
+				imagelogger.Error("failed to fetch characters from API", "url", url, "error", err)
+				return nil, fmt.Errorf("get characters: %w", err)
+			}
+
+			if resp.StatusCode != http.StatusTooManyRequests {
+				break
+			}
+
+			resp.Body.Close()
+			if attempt == maxFetchRetries {
+				imagelogger.Error("too many requests when fetching characters", "url", url, "status_code", resp.StatusCode)
+				return nil, fmt.Errorf("get characters: unexpected status %s", resp.Status)
+			}
+
+			delay := retryAfterDelay(resp.Header.Get("Retry-After"))
+			if delay == 0 {
+				delay = time.Duration(attempt+1) * time.Second
+			}
+
+			imagelogger.Warn("rate limited when fetching characters, retrying", "url", url, "delay", delay)
+			time.Sleep(delay)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			imagelogger.Error("unexpected status code when fetching characters", "url", url, "status_code", resp.StatusCode)
+			return nil, fmt.Errorf("get characters: unexpected status %s", resp.Status)
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			imagelogger.Error("failed to read characters response body", "url", url, "error", err)
+			return nil, fmt.Errorf("read characters response: %w", err)
+		}
+
+		var data charactersResponse
+		if err := json.Unmarshal(body, &data); err != nil {
+			imagelogger.Error("failed to unmarshal characters response", "url", url, "error", err)
+			return nil, fmt.Errorf("unmarshal characters response: %w", err)
+		}
+
+		allCharacters = append(allCharacters, data.Results...)
+		if data.Info.Next == nil {
+			break
+		}
+		url = *data.Info.Next
+		time.Sleep(charactersPageDelay)
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		imagelogger.Error("failed to read characters response body", "error", err)
-		return nil, fmt.Errorf("read characters response: %w", err)
-	}
-
-	var data charactersResponse
-	if err := json.Unmarshal(body, &data); err != nil {
-		imagelogger.Error("failed to unmarshal characters response", "error", err)
-		return nil, fmt.Errorf("unmarshal characters response: %w", err)
-	}
-
-	characters := make(map[int]string, len(data.Results))
-	for _, character := range data.Results {
+	characters := make(map[int]string, len(allCharacters))
+	for _, character := range allCharacters {
 		characters[character.ID] = character.Image
 	}
 
 	return characters, nil
+}
+
+func retryAfterDelay(value string) time.Duration {
+	if value == "" {
+		return 0
+	}
+
+	seconds, err := strconv.Atoi(value)
+	if err == nil {
+		return time.Duration(seconds) * time.Second
+	}
+
+	retryTime, err := http.ParseTime(value)
+	if err != nil {
+		return 0
+	}
+
+	delay := time.Until(retryTime)
+	if delay < 0 {
+		return 0
+	}
+
+	return delay
 }
 
 func characterIDs(characters map[int]string) []int {
@@ -87,7 +158,7 @@ func characterIDs(characters map[int]string) []int {
 func (a *AvatarFromAPI) GetRandomCharacterID() (int, error) {
 	if len(a.characterIDs) == 0 {
 		imagelogger.Error("no characters available for random selection")
-		return 0, fmt.Errorf("no characters available")
+		return 0, fmt.Errorf("no characters available for random selection")
 	}
 
 	index, err := rand.Int(rand.Reader, big.NewInt(int64(len(a.characterIDs))))

@@ -1,7 +1,9 @@
 package s3storage
 
 import (
+	"1337b04rd/models"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -43,7 +45,10 @@ func (s *S3Storage) SaveFile(fileKey string, fileData io.Reader, contentType str
 	resp, err := s.client.Do(req)
 	if err != nil {
 		s3logger.Error("failed to save file to S3", "fileKey", fileKey, "error", err)
-		return err
+		if errors.Is(err, context.DeadlineExceeded) {
+			return models.ErrServiceUnavailable
+		}
+		return models.ErrGatewayTimeout
 	}
 	defer resp.Body.Close()
 
@@ -110,6 +115,6 @@ func (s *S3Storage) objectURL(fileKey string) string {
 	for i, part := range parts {
 		parts[i] = url.PathEscape(part)
 	}
-
-	return s.baseURL + "/" + url.PathEscape(s.bucket) + "/" + strings.Join(parts, "/")
+	url := s.baseURL + "/" + url.PathEscape(s.bucket) + "/" + strings.Join(parts, "_")
+	return url
 }

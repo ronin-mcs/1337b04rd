@@ -5,17 +5,20 @@
 {{define "comment"}}
 <li class="comment">
     <div class="header">
-        <!--            <img src="{{.UserAvatar}}" alt="no pic" width="30px" height="30px">-->
-        <img src="{{.AvatarLink}}" alt="no pic" width="50px" height="50px">
+        <img src="https://rickandmortyapi.com/api/character/avatar/{{.AvatarLink}}.jpeg" alt="no pic" width="50px"
+            height="50px">
         <b>{{.UserName}}</b>
         {{.DataTime}}
         {{.CommentID}}
     </div>
     <div class="content">
-        <a href="https://www.google.com/images/branding/googlelogo/2x/googlelogo_light_color_272x92dp.png">
+        <!-- <a href="https://www.google.com/images/branding/googlelogo/2x/googlelogo_light_color_272x92dp.png">
             <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_light_color_272x92dp.png"
                 alt="no pic" width="100px" height="100px">
-        </a>
+        </a> -->
+        {{range .Attachments}}
+        <img src="{{.Link}}" alt="{{.Attachment.OriginalName}}" width="100px" height="100px">
+        {{end}}
         <div class="text">
             {{.Content}}
         </div>
@@ -26,7 +29,7 @@
     <form id="reply-{{.CommentID}}" class="reply-form" action="/posts/{{.PostID}}/comments/{{.CommentID}}/replies"
         method="POST" enctype="multipart/form-data">
         <textarea name="comment" placeholder="Write your reply..."></textarea>
-        <input name="file" type="file">
+        <input name="files[]" type="file" multiple>
         <button type="submit">Submit</button>
     </form>
     <div class="comment-replies">
@@ -133,22 +136,23 @@
         <!-- Main Post -->
         <div class="post">
             <div class="header">
-                <!--            <img src="{{.UserAvatar}}" alt="no pic" width="30px" height="30px">-->
-                <!-- <img src="https://rickandmortyapi.com/api/character/avatar/1.jpeg" alt="no pic" width="50px"
-                    height="50px"> -->
-                <img src="{{.OP.Avatar}}" alt="no pic" width="50px" height="50px">
-                <b>{{.OP.AnonName}}</b>
-                {{.Post.CreatedAt}}
-                {{.Post.PostID}}
+                <img src="https://rickandmortyapi.com/api/character/avatar/{{.Post.Op.Avatar}}.jpeg" alt="no pic"
+                    width="50px" height="50px">
+                <b>{{.Post.Op.AnonName}}</b>
+                {{.Post.Post.CreatedAt}}
+                {{.Post.Post.PostID}}
             </div>
             <div class="content">
-                <a href="https://www.google.com/images/branding/googlelogo/2x/googlelogo_light_color_272x92dp.png">
+                <!-- <a href="https://www.google.com/images/branding/googlelogo/2x/googlelogo_light_color_272x92dp.png">
                     <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_light_color_272x92dp.png"
                         alt="no pic">
-                </a>
+                </a> -->
+                {{range .Post.Attachments}}
+                <img src="{{.Link}}" alt="{{.Attachment.OriginalName}}">
+                {{end}}
                 <div class="text">
-                    <h3>{{.Post.Title}}</h3>
-                    {{.Post.TextContent}}
+                    <h3>{{.Post.Post.Title}}</h3>
+                    {{.Post.Post.TextContent}}
                 </div>
             </div>
 
@@ -157,7 +161,7 @@
         <div class="comments">
             <h2>Comments</h2>
             <ul class="comment-list">
-                {{range .Comments}}
+                {{range .Post.Comments}}
                 {{template "comment" .}}
                 {{end}}
             </ul>
@@ -168,12 +172,12 @@
         <!-- Add a Comment Section -->
         <div class="add-comment">
             <h3>Add a Comment</h3>
-            <form action="/posts/{{.Post.PostID}}/comments" method="POST" enctype="multipart/form-data">
+            <form action="/posts/{{.Post.Post.PostID}}/comments" method="POST" enctype="multipart/form-data">
                 <textarea name="comment" placeholder="Write your comment here..."></textarea>
                 <tr>
                     <td>File</td>
                     <td>
-                        <input name="file" type="file">
+                        <input name="files[]" type="file" multiple>
                     </td>
                 </tr>
                 <br>

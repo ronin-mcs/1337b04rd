@@ -1,0 +1,86 @@
+<!-- templates/archive-post.html -->
+<!DOCTYPE html>
+<html>
+
+<!-- ==================================== -->
+{{define "comment"}}
+<li class="comment">
+    <div class="header">
+        <!--            <img src="{{.UserAvatar}}" alt="no pic" width="30px" height="30px">-->
+        <img src="{{.AvatarLink}}" alt="no pic" width="50px" height="50px">
+        <b>{{.UserName}}</b>
+        {{.DataTime}}
+        {{.CommentID}}
+    </div>
+    <div class="content">
+        <!-- <a href="https://www.google.com/images/branding/googlelogo/2x/googlelogo_light_color_272x92dp.png">
+            <img src="https://www.google.com/images/branding/googlelogo/2x/googlelogo_light_color_272x92dp.png"
+                alt="no pic" width="100px" height="100px">
+        </a> -->
+        {{range .Attachments}}
+        <img src="{{.Link}}" alt="{{.Attachment.OriginalName}}" width="100px" height="100px">
+        {{end}}
+        <div class="text">
+            {{.Content}}
+        </div>
+    </div>
+    <div class="comment-actions">
+        <button type="button" onclick="toggleReplyForm('reply-{{.CommentID}}')">Reply</button>
+    </div>
+    <form id="reply-{{.CommentID}}" class="reply-form" action="/posts/{{.PostID}}/comments/{{.CommentID}}/replies"
+        method="POST" enctype="multipart/form-data">
+        <textarea name="comment" placeholder="Write your reply..."></textarea>
+        <input name="file" type="file">
+        <button type="submit">Submit</button>
+    </form>
+    <div class="comment-replies">
+        <ul class="comment-list">
+            {{range .Replies}}
+            {{template "comment" .}}
+            {{end}}
+        </ul>
+    </div>
+</li>
+{{end}}
+<!-- ==================================== -->
+
+<head>
+    <title>{{.Post.Post.Title}} (Archived)</title>
+    <style>
+        .comment {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px 0;
+        }
+
+        .comment img.avatar {
+            width: 50px;
+            vertical-align: middle;
+        }
+
+        .comment-content {
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <a href="/archive">Back to Archive</a>
+    <h1>{{.Post.Post.Title}} (Archived)</h1>
+    <p>{{.Post.Post.TextContent}}</p>
+    {{range .Post.Attachments}}
+    <img src="{{.Link}}" alt="{{.Attachment.OriginalName}}">
+    {{end}}
+    <p>Post ID: {{.Post.Post.PostID}}</p>
+    <h2>Comments</h2>
+    <div class="comments">
+        {{range .Post.Comments}}
+        {{template "comment" .}}
+        {{end}}
+    </div>
+    <!-- Comment form is omitted since adding new comments is not allowed -->
+</body>
+
+</html>

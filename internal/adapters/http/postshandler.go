@@ -1,6 +1,7 @@
 package httpadapter
 
 import (
+	"1337b04rd/internal/domain"
 	"net/http"
 	"strconv"
 	"strings"
@@ -30,7 +31,7 @@ func (h *PostHandler) Posts(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		h.getPosts(page, limit)
+		h.getPosts(w, r, page, limit)
 	default:
 		w.Header().Set("Allow", "GET")
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -55,8 +56,7 @@ func (h *PostHandler) PostByID(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			// GET /posts/{id}
-			h.getPostByID(postID)
-
+			h.getPostPageByID(w, postID, true)
 		default:
 			w.Header().Set("Allow", "GET")
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -69,7 +69,7 @@ func (h *PostHandler) PostByID(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost:
 			// POST /posts/{id}/comments
-			h.createCommentToPost(postID)
+			h.createCommentToPost(w, r, postID, "")
 		default:
 			w.Header().Set("Allow", "POST")
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -86,7 +86,7 @@ func (h *PostHandler) PostByID(w http.ResponseWriter, r *http.Request) {
 		}
 		switch r.Method {
 		case http.MethodPost:
-			h.createCommentToComment(postID, commentID)
+			h.createCommentToPost(w, r, postID, commentID)
 		default:
 			w.Header().Set("Allow", "POST")
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -99,26 +99,61 @@ func (h *PostHandler) PostByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *PostHandler) Archive(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		// GET /archive?page=1&limit=20
-		page, err := queryInt(r, "page", 1)
-		if err != nil {
-			http.Error(w, "invalid page", http.StatusBadRequest)
-			return
-		}
+	// if !strings.HasPrefix(r.URL.Path, "/archive") {
+	// 	http.NotFound(w, r)
+	// 	return
+	// }
 
-		limit, err := queryInt(r, "limit", 20)
-		if err != nil {
-			http.Error(w, "invalid limit", http.StatusBadRequest)
-			return
-		}
+	if r.URL.Path == "/archive" {
+		switch r.Method {
+		case http.MethodGet:
+			// GET /archive?page=1&limit=20
+			page, err := queryInt(r, "page", 1)
+			if err != nil {
+				http.Error(w, "invalid page", http.StatusBadRequest)
+				return
+			}
 
-		h.getArchive(page, limit)
-	default:
-		w.Header().Set("Allow", "GET")
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			limit, err := queryInt(r, "limit", 20)
+			if err != nil {
+				http.Error(w, "invalid limit", http.StatusBadRequest)
+				return
+			}
+
+			h.getArchive(w, r, page, limit)
+		default:
+			w.Header().Set("Allow", "GET")
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+		return
 	}
+
+	// Это /archive/ или /archive/{id} или /archive/{id}/
+	if r.URL.Path == "/archive/" {
+		http.Redirect(w, r, "/archive", http.StatusMovedPermanently)
+		return
+	}
+
+	// Это /archive/{id} или /archive/{id}/
+	path := strings.TrimPrefix(r.URL.Path, "/archive/")
+	path = strings.TrimSuffix(path, "/")
+
+	parts := strings.Split(path, "/")
+	postID := parts[0]
+
+	if len(parts) == 1 {
+		switch r.Method {
+		case http.MethodGet:
+			// GET /archive/{id}
+			h.getPostPageByID(w, postID, false)
+		default:
+			w.Header().Set("Allow", "GET")
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+		return
+	}
+
+	http.NotFound(w, r)
 }
 
 func (h *PostHandler) Create(w http.ResponseWriter, r *http.Request) {

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"time"
 )
 
 var attachmentsRepoLogger = slog.With("adapter", "attachments_repo")
@@ -18,9 +19,10 @@ func NewAttachmentsRepo(db *sql.DB) *AttachmentsRepo {
 }
 
 func (h *AttachmentsRepo) Create(attachment *models.Attachment) error {
+	attachment.CreatedAt = time.Now().UTC()
 	query := `
-		INSERT INTO attachments (post_id, comment_id, file_key, original_name, content_type)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO attachments (post_id, comment_id, file_key, original_name, content_type, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING attachment_id
 	`
 
@@ -39,6 +41,7 @@ func (h *AttachmentsRepo) Create(attachment *models.Attachment) error {
 		attachment.FileKey,
 		attachment.OriginalName,
 		attachment.ContentType,
+		attachment.CreatedAt,
 	).Scan(&attachment.AttachmentID)
 	if err != nil {
 		attachmentsRepoLogger.Error(
@@ -56,7 +59,7 @@ func (h *AttachmentsRepo) Create(attachment *models.Attachment) error {
 
 func (h *AttachmentsRepo) GetByPostID(postID int) ([]models.Attachment, error) {
 	query := `
-		SELECT attachment_id, post_id, comment_id, file_key, original_name, content_type
+		SELECT attachment_id, post_id, comment_id, file_key, original_name, content_type, created_at
 		FROM attachments
 		WHERE post_id = $1 AND comment_id IS NULL
 		ORDER BY attachment_id ASC
@@ -64,6 +67,10 @@ func (h *AttachmentsRepo) GetByPostID(postID int) ([]models.Attachment, error) {
 
 	rows, err := h.db.Query(query, postID)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			attachmentsRepoLogger.Info("no attachments", "post_id", postID, "error", err)
+			return []models.Attachment{}, nil
+		}
 		attachmentsRepoLogger.Error("get by post id failed", "post_id", postID, "error", err)
 		return nil, err
 	}
@@ -80,7 +87,7 @@ func (h *AttachmentsRepo) GetByPostID(postID int) ([]models.Attachment, error) {
 
 func (h *AttachmentsRepo) GetByCommentID(commentID int) ([]models.Attachment, error) {
 	query := `
-		SELECT attachment_id, post_id, comment_id, file_key, original_name, content_type
+		SELECT attachment_id, post_id, comment_id, file_key, original_name, content_type, created_at
 		FROM attachments
 		WHERE comment_id = $1
 		ORDER BY attachment_id ASC
@@ -142,6 +149,7 @@ func scanAttachments(rows *sql.Rows) ([]models.Attachment, error) {
 			&attachment.FileKey,
 			&attachment.OriginalName,
 			&attachment.ContentType,
+			&attachment.CreatedAt,
 		)
 		if err != nil {
 			return nil, err

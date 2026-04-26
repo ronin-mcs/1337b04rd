@@ -32,10 +32,13 @@ func (h *PostService) ConstructCatalogPostViews(posts []models.Post) ([]*PostVie
 
 		preview := &AttachmentView{}
 		if len(attachments) > 0 {
-			preview := &AttachmentView{
+			preview = &AttachmentView{
 				Attachment: attachments[0],
 			}
 			preview.Link, err = h.fileStorage.GetFileLink(attachments[0].FileKey)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		// for catalog page we can show only first attachment as preview, so we can construct full attachments views only for post page
@@ -59,7 +62,7 @@ func (h *PostService) ConstructCatalogPostViews(posts []models.Post) ([]*PostVie
 	return postViews, nil
 }
 
-func (h *PostService) constructAttachmentsViews(attachments []models.Attachment) ([]AttachmentsView, error) {
+func (h *PostService) constructAttachmentsViews(attachments []models.Attachment) ([]AttachmentView, error) {
 	attachmentsViews := make([]AttachmentView, 0, len(attachments))
 	for _, att := range attachments {
 		link, err := h.fileStorage.GetFileLink(att.FileKey)
@@ -76,7 +79,6 @@ func (h *PostService) constructAttachmentsViews(attachments []models.Attachment)
 }
 
 func (h *PostService) GetActualPosts() ([]models.Post, error) {
-
 	posts, err := h.posts.GetAll(true)
 	if err != nil {
 		return nil, err

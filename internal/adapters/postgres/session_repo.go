@@ -4,6 +4,7 @@ import (
 	"1337b04rd/models"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -33,15 +34,34 @@ func (h *PGSesssionsRepository) Create(session *models.Session) error {
 	}
 
 	if session.ExpiresAt.IsZero() {
-		session.ExpiresAt = time.Now().Add(7 * 24 * time.Hour)
+		session.ExpiresAt = time.Now().UTC().Add(7 * 24 * time.Hour)
 	}
 
-	err = h.db.QueryRow(query, sessionHistory, session.ExpiresAt).Scan(&session.SessionId)
+	err = h.db.QueryRow(query, sessionHistory, session.ExpiresAt).Scan(&session.SessionID)
 	if err != nil {
 		sessionlogger.Error("Create session failed", "error", err)
 		return err
 	}
 
+	return nil
+}
+
+func (h *PGSesssionsRepository) UpdateSessionHistory(session *models.Session) error {
+	query := `
+		UPDATE sessions
+		SET session_history = $1
+		WHERE session_id = $2
+	`
+	sessionHistory, err := json.Marshal(session.Sessions)
+	if err != nil {
+		sessionlogger.Error("Map marshal failed while updating session in db", "error", err)
+		return err
+	}
+	_, err = h.db.Exec(query, sessionHistory, session.SessionID)
+	if err != nil {
+		sessionlogger.Error("Update session failed", "error", err)
+		return err
+	}
 	return nil
 }
 
@@ -52,8 +72,11 @@ func (h *PGSesssionsRepository) GetByID(id int) (*models.Session, error) {
 	`
 	var session models.Session
 	var sessionHistoryJSON []byte
-	err := h.db.QueryRow(query, id).Scan(&session.SessionId, &sessionHistoryJSON, &session.ExpiresAt)
+	err := h.db.QueryRow(query, id).Scan(&session.SessionID, &sessionHistoryJSON, &session.ExpiresAt)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		sessionlogger.Error("Get session by ID failed", "error", err)
 		return nil, err
 	}
@@ -82,7 +105,7 @@ func (h *PGSesssionsRepository) GetAll() ([]models.Session, error) {
 		var session models.Session
 		var sessionHistoryJSON []byte
 
-		err := rows.Scan(&session.SessionId, &sessionHistoryJSON, &session.ExpiresAt)
+		err := rows.Scan(&session.SessionID, &sessionHistoryJSON, &session.ExpiresAt)
 		if err != nil {
 			sessionlogger.Error("Scan session failed", "error", err)
 			return nil, err

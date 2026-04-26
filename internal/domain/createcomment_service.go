@@ -43,12 +43,12 @@ func (h *PostService) CreateComment(comment *models.Comment, filename_filedata m
 		}
 
 		attachements = append(attachements, models.Attachment{
-			AtttachmentID: 0, // will be set in repo
-			PostID:        postID,
-			CommnentID:    commentID, // this is for post attachments, so commentID is nil
-			FileKey:       fileKey,
-			OriginalName:  filename,
-			ContentType:   contentType,
+			AttachmentID: 0, // will be set in repo
+			PostID:       postID,
+			CommentID:    &commentID, // this is for post attachments, so commentID is nil
+			FileKey:      fileKey,
+			OriginalName: filename,
+			ContentType:  contentType,
 		})
 	}
 
@@ -58,7 +58,10 @@ func (h *PostService) CreateComment(comment *models.Comment, filename_filedata m
 			return err
 		}
 	}
-	return nil
+
+	// =============================================================================
+	// update last_updated_at status for post
+	return h.posts.UpdateStatus(postID)
 }
 
 func (h *PostService) retrieveAnonIDForComment(postID int, sessionID int) (int, error) {
@@ -73,6 +76,7 @@ func (h *PostService) retrieveAnonIDForComment(postID int, sessionID int) (int, 
 	}
 
 	session, err := h.sessions.GetByID(sessionID)
+
 	if err != nil {
 		return 0, err
 	}
@@ -86,7 +90,7 @@ func (h *PostService) retrieveAnonIDForComment(postID int, sessionID int) (int, 
 			return 0, err
 		}
 
-		err = h.uploadSessionID(postID, sessionID)
+		err = h.uploadSessionID(postID, sessionID, anon.AnonID)
 		if err != nil {
 			return 0, err
 		}
@@ -157,11 +161,18 @@ func (h *PostService) getAvatarForNewAnon(postID int) (string, error) {
 	return "", errors.New("no available avatars")
 }
 
-func (h *PostService) uploadSessionID(postID int, sessionID int) error {
+func (h *PostService) uploadSessionID(postID int, sessionID int, anonID int) error {
 	session, err := h.sessions.GetByID(sessionID)
 	if err != nil {
 		return err
 	}
-	session.Sessions[postID] = session.Sessions[postID] // сохраняем в сессии id анона для этого поста
-	return h.sessions.Create(session)                   // обновляем сессию в репозитории
+	if session == nil {
+		session = &models.Session{SessionID: sessionID}
+		err = h.sessions.Create(session)
+		if err != nil {
+			return err
+		}
+	}
+	session.Sessions[postID] = anonID               // сохраняем в сессии id анона для этого поста
+	return h.sessions.UpdateSessionHistory(session) // обновляем сессию в репозитории
 }

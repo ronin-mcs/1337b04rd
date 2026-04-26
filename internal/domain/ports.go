@@ -7,10 +7,12 @@ import (
 
 type PostRepository interface {
 	Create(post *models.Post) error
+	CreateWithOP(post *models.Post, anon *models.Anon) error
 	GetByID(id int, IsActual bool) (*models.Post, error)
 	GetAll(IsActual bool) ([]models.Post, error)
 	UpdateStatus(id int) error
 	Delete(id int) error
+	AssignOP(post_id, anon_id int) error
 }
 
 type CommentRepository interface {
@@ -28,10 +30,12 @@ type AnonRepository interface {
 	GetAllByPostID(id int) ([]models.Anon, error)
 	GetAvatarCountByPostID(id int) (map[string]int, error)
 	Delete(id int) error
+	DeleteByPostID(postID int) error
 }
 
 type SessionRepository interface {
 	Create(session *models.Session) error
+	UpdateSessionHistory(session *models.Session) error
 	GetByID(id int) (*models.Session, error)
 	GetAll() ([]models.Session, error)
 	DeleteExpired() error

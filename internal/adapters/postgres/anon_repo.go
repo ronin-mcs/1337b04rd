@@ -3,6 +3,7 @@ package dbadapter
 import (
 	"1337b04rd/models"
 	"database/sql"
+	"errors"
 	"log/slog"
 )
 
@@ -34,12 +35,16 @@ func (h *PGAnonsRepository) Create(anon *models.Anon) error {
 
 func (h *PGAnonsRepository) GetByID(id int) (*models.Anon, error) {
 	query := `
-		SELECT (anon_id, post_id, avatar, name) FROM Anons 
+		SELECT anon_id, post_id, avatar, name FROM Anons 
 		WHERE anon_id = $1
 	`
 	var anon models.Anon
-	err := h.db.QueryRow(query, id).Scan(&anon.AnonID, &anon.PostID, &anon.Avatar, &anon.Anon8uiName)
+	err := h.db.QueryRow(query, id).Scan(&anon.AnonID, &anon.PostID, &anon.Avatar, &anon.AnonName)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			anonlogger.Info("anon not found", "id", id)
+			return nil, models.ErrNotFound
+		}
 		anonlogger.Error("Get anon by ID failed", "error", err)
 		return nil, err
 	}
@@ -60,7 +65,7 @@ func (h *PGAnonsRepository) GetAll() ([]models.Anon, error) {
 	var anons []models.Anon
 	for rows.Next() {
 		var anon models.Anon
-		err := rows.Scan(&anon.AnonID, &anon.PostID, &anon.Avatar, &anon.Anon8uiName)
+		err := rows.Scan(&anon.AnonID, &anon.PostID, &anon.Avatar, &anon.AnonName)
 		if err != nil {
 			anonlogger.Error("Scan anon failed", "error", err)
 			return nil, err
@@ -114,6 +119,9 @@ func (h *PGAnonsRepository) GetAvatarCountByPostID(id int) (map[string]int, erro
 	avatar_count := make(map[string]int)
 	rows, err := h.db.Query(query, id)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
 		anonlogger.Error("Get avatar count by post ID failed", "error", err, "postID", id)
 		return nil, err
 	}
@@ -134,4 +142,48 @@ func (h *PGAnonsRepository) GetAvatarCountByPostID(id int) (map[string]int, erro
 		return nil, err
 	}
 	return avatar_count, nil
+}
+
+func (h *PGAnonsRepository) Delete(id int) error {
+	query := `
+		DELETE FROM Anons
+		WHERE anon_id = $1
+	`
+	result, err := h.db.Exec(query, id)
+	if err != nil {
+		anonlogger.Error("Delete anon failed", "error", err)
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		anonlogger.Error("check deleted rows failed", "id", id, "error", err)
+		return err
+	}
+	if rowsAffected == 0 {
+		anonlogger.Error("anon not found", "id", id)
+		return errors.New("anon not found")
+	}
+	return nil
+}
+
+func (h *PGAnonsRepository) DeleteByPostID(postID int) error {
+	query := `
+		DELETE FROM Anons
+		WHERE post_id = $1
+	`
+	result, err := h.db.Exec(query, postID)
+	if err != nil {
+		anonlogger.Error("Delete anon failed", "error", err)
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		anonlogger.Error("check deleted rows failed", "postID", postID, "error", err)
+		return err
+	}
+	if rowsAffected == 0 {
+		anonlogger.Error("anon not found", "postID", postID)
+		return errors.New("anon not found")
+	}
+	return nil
 }
