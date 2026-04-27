@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"1337b04rd/models"
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
@@ -9,23 +8,23 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+
+	"1337b04rd/models"
 )
 
-func (h *PostService) CreatePost(post *models.Post, filename_filedata map[string]io.Reader) (int, error) {
+func (h *PostService) CreatePost(post *models.Post, filename_filedata map[string]io.Reader, op *models.Anon) (int, error) {
 	characterID, err := h.avatarStorage.GetRandomCharacterID()
 	if err != nil {
 		return 0, err
 	}
-	anonName := fmt.Sprintf("Anon%d", characterID)
 
-	anon := &models.Anon{
-		AnonID:   0,
-		PostID:   post.PostID,
-		Avatar:   fmt.Sprintf("%d", characterID),
-		AnonName: anonName,
+	if op.AnonName == "" {
+		op.AnonName = fmt.Sprintf("Anon%d", characterID)
 	}
 
-	err = h.posts.CreateWithOP(post, anon)
+	op.Avatar = fmt.Sprintf("%d", characterID)
+
+	err = h.posts.CreateWithOP(post, op)
 	if err != nil {
 		return 0, err
 	}
@@ -113,7 +112,6 @@ func (h *PostService) uploadFiles(files map[string]io.Reader, prefix string) (ma
 		}
 	}
 	return filekey_filename, nil
-
 }
 
 func (h *PostService) generateFileKey(prefix, ext string) (string, error) {

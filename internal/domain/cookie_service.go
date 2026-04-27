@@ -1,8 +1,9 @@
 package domain
 
 import (
-	"1337b04rd/models"
 	"time"
+
+	"1337b04rd/models"
 )
 
 func (h *PostService) CreateNewSessionID() (int, error) {
@@ -17,5 +18,4 @@ func (h *PostService) CreateNewSessionID() (int, error) {
 	}
 
 	return session.SessionID, nil
-
 }

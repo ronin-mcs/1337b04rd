@@ -29,7 +29,7 @@
     <form id="reply-{{.CommentID}}" class="reply-form" action="/posts/{{.PostID}}/comments/{{.CommentID}}/replies"
         method="POST" enctype="multipart/form-data">
         <textarea name="comment" placeholder="Write your reply..."></textarea>
-        <input name="files[]" type="file" multiple>
+        <input name="files" type="file" multiple>
         <button type="submit">Submit</button>
     </form>
     <div class="comment-replies">
@@ -177,7 +177,7 @@
                 <tr>
                     <td>File</td>
                     <td>
-                        <input name="files[]" type="file" multiple>
+                        <input name="files" type="file" multiple>
                     </td>
                 </tr>
                 <br>

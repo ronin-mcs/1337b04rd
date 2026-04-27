@@ -8,7 +8,7 @@ type CommentView struct {
 	PostID      int
 	CommentID   int
 	UserName    string
-	AvatarLink  string //actually it's characterID, but we can easily get avatar link from it
+	AvatarLink  string // actually it's characterID, but we can easily get avatar link from it
 	DataTime    string
 	Content     string
 	Replies     []CommentView

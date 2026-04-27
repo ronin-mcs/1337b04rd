@@ -1,11 +1,12 @@
 package dbadapter
 
 import (
-	"1337b04rd/models"
 	"database/sql"
 	"fmt"
 	"log/slog"
 	"time"
+
+	"1337b04rd/models"
 )
 
 var commentsLogger = slog.With("adapter", "postgres", "repository", "comments")

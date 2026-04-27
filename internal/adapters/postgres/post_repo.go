@@ -1,33 +1,34 @@
 package dbadapter
 
 import (
-	"1337b04rd/models"
 	"database/sql"
 	"fmt"
 	"log/slog"
 	"time"
+
+	"1337b04rd/models"
 )
 
 var postsLogger = slog.With("adapter", "postgres", "repository", "posts")
 
 var actualWhereClause = `
-		last_updated_at + INTERVAL '15 minutes' > (now() AT TIME ZONE 'UTC')
+		(last_updated_at + INTERVAL '15 minutes' > (now() AT TIME ZONE 'UTC')
 		AND (
 			created_at + INTERVAL '10 minutes' > (now() AT TIME ZONE 'UTC')
 			OR EXISTS (
 				SELECT 1 FROM comments WHERE comments.post_id = posts.post_id
 			)
-		)
+		))
 	`
 
 var archivedWhereClause = `
-		last_updated_at + INTERVAL '15 minutes' <= (now() AT TIME ZONE 'UTC')
+		(last_updated_at + INTERVAL '15 minutes' <= (now() AT TIME ZONE 'UTC')
 		OR (
 			created_at + INTERVAL '10 minutes' <= (now() AT TIME ZONE 'UTC')
 			AND NOT EXISTS (
 				SELECT 1 FROM comments WHERE comments.post_id = posts.post_id
 			)
-		)
+		))
 	`
 
 type PGPostsRepository struct {

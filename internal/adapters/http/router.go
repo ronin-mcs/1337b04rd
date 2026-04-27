@@ -1,10 +1,11 @@
 package httpadapter
 
 import (
-	"1337b04rd/internal/domain"
 	"fmt"
 	"net/http"
 	"strings"
+
+	"1337b04rd/internal/domain"
 )
 
 func NewRouter(postService *domain.PostService) http.Handler {

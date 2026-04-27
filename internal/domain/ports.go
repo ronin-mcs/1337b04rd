@@ -1,8 +1,9 @@
 package domain
 
 import (
-	"1337b04rd/models"
 	"io"
+
+	"1337b04rd/models"
 )
 
 type PostRepository interface {

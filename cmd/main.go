@@ -1,11 +1,6 @@
 package main
 
 import (
-	httpadapter "1337b04rd/internal/adapters/http"
-	dbadapter "1337b04rd/internal/adapters/postgres"
-	"1337b04rd/internal/adapters/rickandmortyapi"
-	s3storage "1337b04rd/internal/adapters/s3"
-	"1337b04rd/internal/domain"
 	"database/sql"
 	"flag"
 	"fmt"
@@ -13,6 +8,12 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	httpadapter "1337b04rd/internal/adapters/http"
+	dbadapter "1337b04rd/internal/adapters/postgres"
+	"1337b04rd/internal/adapters/rickandmortyapi"
+	s3storage "1337b04rd/internal/adapters/s3"
+	"1337b04rd/internal/domain"
 
 	_ "github.com/lib/pq"
 )

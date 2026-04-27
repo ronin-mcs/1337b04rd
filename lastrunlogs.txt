@@ -1,57 +1,15 @@
 
 ==========================================================
-time=23:11 level=INFO source=/mnt/c/Users/KannaKommunista/home/alem/backend/1337b04rd/cmd/main.go:120 msg="Starting server" port=8080
+time=16:04 level=INFO source=/mnt/c/Users/KannaKommunista/home/alem/backend/1337b04rd/cmd/main.go:120 msg="Starting server" port=8080
 
 ==========================================================
-time=23:11 level=INFO source=:0 msg="WARN no posts found adapter=postgres repository=posts id=12"
+time=16:04 level=INFO source=:0 msg="WARN no files to upload for posts/58 domain=services"
 
 ==========================================================
-time=23:11 level=INFO source=:0 msg="WARN post not found or is archived domain=services id=12"
+time=16:04 level=INFO source=:0 msg="WARN no session cookie found adapter=http error=\"http: named cookie not present\""
 
 ==========================================================
-time=23:11 level=INFO source=:0 msg="http: superfluous response.WriteHeader call from 1337b04rd/internal/adapters/http.(*PostHandler).RenderError (posthandlermethods.go:411)"
+time=16:04 level=INFO source=:0 msg="WARN No session ID found in cookie. Will create a new one adapter=http postID=58 error=\"no session cookie found\""
 
 ==========================================================
-time=23:11 level=INFO source=:0 msg="WARN no posts found adapter=postgres repository=posts id=12"
-
-==========================================================
-time=23:11 level=INFO source=:0 msg="WARN post not found or is archived domain=services id=12"
-
-==========================================================
-time=23:11 level=INFO source=:0 msg="http: superfluous response.WriteHeader call from 1337b04rd/internal/adapters/http.(*PostHandler).RenderError (posthandlermethods.go:411)"
-
-==========================================================
-time=23:12 level=INFO source=:0 msg="WARN no posts found adapter=postgres repository=posts id=12"
-
-==========================================================
-time=23:12 level=INFO source=:0 msg="WARN post not found or is archived domain=services id=12"
-
-==========================================================
-time=23:12 level=INFO source=:0 msg="http: superfluous response.WriteHeader call from 1337b04rd/internal/adapters/http.(*PostHandler).RenderError (posthandlermethods.go:411)"
-
-==========================================================
-time=23:13 level=INFO source=:0 msg="WARN no posts found adapter=postgres repository=posts id=12"
-
-==========================================================
-time=23:13 level=INFO source=:0 msg="WARN post not found or is archived domain=services id=12"
-
-==========================================================
-time=23:13 level=INFO source=:0 msg="http: superfluous response.WriteHeader call from 1337b04rd/internal/adapters/http.(*PostHandler).RenderError (posthandlermethods.go:411)"
-
-==========================================================
-time=23:14 level=INFO source=:0 msg="WARN no posts found adapter=postgres repository=posts id=12"
-
-==========================================================
-time=23:14 level=INFO source=:0 msg="WARN post not found or is archived domain=services id=12"
-
-==========================================================
-time=23:14 level=INFO source=:0 msg="http: superfluous response.WriteHeader call from 1337b04rd/internal/adapters/http.(*PostHandler).RenderError (posthandlermethods.go:411)"
-
-==========================================================
-time=23:24 level=INFO source=:0 msg="WARN no posts found adapter=postgres repository=posts id=22"
-
-==========================================================
-time=23:24 level=INFO source=:0 msg="WARN post not found or is archived domain=services id=22"
-
-==========================================================
-time=23:24 level=INFO source=:0 msg="http: superfluous response.WriteHeader call from 1337b04rd/internal/adapters/http.(*PostHandler).RenderError (posthandlermethods.go:411)"
+time=16:05 level=INFO source=:0 msg="WARN title or text is empty adapter=http title=\"\" text=\"\""

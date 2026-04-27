@@ -1,13 +1,14 @@
 package dbadapter
 
 import (
-	"1337b04rd/models"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"time"
+
+	"1337b04rd/models"
 )
 
 var sessionlogger = slog.With("adapter", "postgres", "repository", "sessions")

@@ -1,10 +1,11 @@
 package httpadapter
 
 import (
-	"1337b04rd/internal/domain"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"1337b04rd/internal/domain"
 )
 
 type PostHandler struct {
@@ -110,13 +111,13 @@ func (h *PostHandler) Archive(w http.ResponseWriter, r *http.Request) {
 			// GET /archive?page=1&limit=20
 			page, err := queryInt(r, "page", 1)
 			if err != nil {
-				http.Error(w, "invalid page", http.StatusBadRequest)
+				h.RenderError(w, http.StatusBadRequest, "invalid page")
 				return
 			}
 
 			limit, err := queryInt(r, "limit", 20)
 			if err != nil {
-				http.Error(w, "invalid limit", http.StatusBadRequest)
+				h.RenderError(w, http.StatusBadRequest, "invalid page")
 				return
 			}
 

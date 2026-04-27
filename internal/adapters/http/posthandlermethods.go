@@ -1,8 +1,6 @@
 package httpadapter
 
 import (
-	"1337b04rd/internal/domain"
-	"1337b04rd/models"
 	"bytes"
 	"errors"
 	"fmt"
@@ -13,12 +11,17 @@ import (
 	"os"
 	"strconv"
 	"time"
+
+	"1337b04rd/internal/domain"
+	"1337b04rd/models"
 )
 
 var httpAdapterLogger = slog.With("adapter", "http")
 
-const maxUploadSize = 50 << 20  // 50 MB
-const maxParseMemory = 10 << 20 // 10 MB
+const (
+	maxUploadSize  = 50 << 20 // 50 MB
+	maxParseMemory = 10 << 20 // 10 MB
+)
 
 type CatalogPageData struct {
 	Posts []*domain.PostView
@@ -48,10 +51,12 @@ func (h *PostHandler) getPosts(w http.ResponseWriter, r *http.Request, page, lim
 	if page > pages {
 		httpAdapterLogger.Warn("requested page exceeds total pages. It will redirect to last page automatically.", "requested_page", page, "total_pages", pages)
 		http.Redirect(w, r, fmt.Sprintf("/posts?page=%d&limit=%d", pages, limit), http.StatusMovedPermanently)
+		return
 	}
 	if page < 1 {
 		httpAdapterLogger.Warn("requested page is less than 1. It will redirect to first page automatically.", "requested_page", page)
 		http.Redirect(w, r, fmt.Sprintf("/posts?page=1&limit=%d", limit), http.StatusMovedPermanently)
+		return
 	}
 
 	posts = posts[(page-1)*limit : min(page*limit, len(posts))]
@@ -109,6 +114,13 @@ func (h *PostHandler) createPost(w http.ResponseWriter, r *http.Request) {
 
 	title := r.FormValue("subject")
 	text := r.FormValue("comment")
+	name := r.FormValue("name")
+
+	if title == "" || text == "" {
+		httpAdapterLogger.Warn("title or text is empty", "title", title, "text", text)
+		h.RenderError(w, http.StatusBadRequest, "title or text is empty")
+		return
+	}
 
 	files := make(map[string]io.Reader)
 
@@ -140,10 +152,32 @@ func (h *PostHandler) createPost(w http.ResponseWriter, r *http.Request) {
 		AnonID:      0, // will be set in service
 	}
 
-	postID, err := h.postService.CreatePost(post, files)
+	op := &models.Anon{
+		AnonName: name,
+	}
+	postID, err := h.postService.CreatePost(post, files, op)
 	if err != nil {
 		h.RenderError(w, models.StatusFromError(err), "failed to create post")
 		return
+	}
+
+	// reading sessionID
+	sessionID, err := h.readSessionIDFromCookie(r)
+	if err != nil && errors.Is(err, models.ErrNoSession) {
+		httpAdapterLogger.Warn("No session ID found in cookie. Will create a new one", "postID", postID, "error", err)
+		sessionID = h.setSessionCookie(w) // set a session cookie with session ID picked by repo or 0 for anonymous users
+	}
+
+	if err != nil && !errors.Is(err, models.ErrNoSession) {
+		httpAdapterLogger.Error("failed to read session ID from cookie", "postID", postID, "error", err)
+		h.RenderError(w, http.StatusInternalServerError, "failed to read session ID from cookie for creating session for OP")
+		return
+	}
+
+	err = h.postService.UploadSessionID(postID, sessionID, op.AnonID)
+	if err != nil {
+		httpAdapterLogger.Warn("failed to upload session in create post for op and retrieve anon ID from session", "postID", postID, "sessionID", sessionID, "error", err)
+		sessionID = 0
 	}
 
 	http.Redirect(w, r, fmt.Sprintf("/posts/%d", postID), http.StatusSeeOther)
@@ -331,10 +365,12 @@ func (h *PostHandler) getArchive(w http.ResponseWriter, r *http.Request, page, l
 	if page > pages {
 		httpAdapterLogger.Warn("requested page exceeds total pages. It will redirect to last page automatically.", "requested_page", page, "total_pages", pages)
 		http.Redirect(w, r, fmt.Sprintf("/archive?page=%d&limit=%d", pages, limit), http.StatusMovedPermanently)
+		return
 	}
 	if page < 1 {
 		httpAdapterLogger.Warn("requested page is less than 1. It will redirect to first page automatically.", "requested_page", page)
 		http.Redirect(w, r, fmt.Sprintf("/archive?page=1&limit=%d", limit), http.StatusMovedPermanently)
+		return
 	}
 
 	posts = posts[(page-1)*limit : min(page*limit, len(posts))]
@@ -345,7 +381,7 @@ func (h *PostHandler) getArchive(w http.ResponseWriter, r *http.Request, page, l
 		return
 	}
 
-	tmpl, err := template.ParseFiles("templates/catalog.html")
+	tmpl, err := template.ParseFiles("templates/archive.html")
 	if err != nil {
 		httpAdapterLogger.Error("failed to parse template file", "error", err, "template_name", "archive.html")
 		h.RenderError(w, models.StatusFromError(err), "internal server error")
@@ -371,7 +407,7 @@ func (h *PostHandler) readSessionIDFromCookie(r *http.Request) (int, error) {
 	if err != nil {
 		if errors.Is(err, http.ErrNoCookie) {
 			httpAdapterLogger.Warn("no session cookie found", "error", err)
-			return 0, errors.New("no session cookie found")
+			return 0, models.ErrNoSession
 		}
 		httpAdapterLogger.Error("failed to get session cookie", "error", err)
 		return 0, errors.New("failed to get session cookie")
@@ -404,7 +440,6 @@ func (h *PostHandler) setSessionCookie(w http.ResponseWriter) int {
 		SameSite: http.SameSiteStrictMode, // Лучшая защита CSRF
 	})
 	return sessionID
-
 }
 
 func (h *PostHandler) RenderError(w http.ResponseWriter, code int, message string) {

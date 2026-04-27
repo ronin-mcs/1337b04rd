@@ -1,10 +1,11 @@
 package dbadapter
 
 import (
-	"1337b04rd/models"
 	"database/sql"
 	"errors"
 	"log/slog"
+
+	"1337b04rd/models"
 )
 
 var anonlogger = slog.With("adapter", "postgres", "repository", "anons")

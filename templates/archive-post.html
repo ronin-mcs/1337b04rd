@@ -27,12 +27,12 @@
     <div class="comment-actions">
         <button type="button" onclick="toggleReplyForm('reply-{{.CommentID}}')">Reply</button>
     </div>
-    <form id="reply-{{.CommentID}}" class="reply-form" action="/posts/{{.PostID}}/comments/{{.CommentID}}/replies"
+    <!-- <form id="reply-{{.CommentID}}" class="reply-form" action="/posts/{{.PostID}}/comments/{{.CommentID}}/replies"
         method="POST" enctype="multipart/form-data">
         <textarea name="comment" placeholder="Write your reply..."></textarea>
-        <input name="file" type="file">
+        <input name="files" type="file" multiple>
         <button type="submit">Submit</button>
-    </form>
+    </form> -->
     <div class="comment-replies">
         <ul class="comment-list">
             {{range .Replies}}

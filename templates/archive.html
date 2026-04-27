@@ -66,8 +66,8 @@
 
         <nav>
             <!-- Navigation links -->
-            [<a href="catalog.html">Catalog</a>] |
-            [<a href="create-post.html">Create Post</a>]
+            [<a href="/posts">Catalog</a>] |
+            [<a href="/posts/create">Create Post</a>]
         </nav>
     </header>
     <main>
@@ -75,7 +75,7 @@
             <ul class="list">
                 {{range .Posts}}
                 <li class="post">
-                    <a href="/posts/{{.Post.PostID}}">
+                    <a href="/archive/{{.Post.PostID}}">
                         {{if .Preview}}
                         <img src="{{.Preview.Link}}" alt="{{.Preview.Attachment.OriginalName}}">
                         {{end}}

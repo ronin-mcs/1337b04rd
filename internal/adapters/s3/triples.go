@@ -1,7 +1,6 @@
 package s3storage
 
 import (
-	"1337b04rd/models"
 	"context"
 	"errors"
 	"fmt"
@@ -11,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"1337b04rd/models"
 )
 
 var s3logger = slog.With("adapter", "s3storage")

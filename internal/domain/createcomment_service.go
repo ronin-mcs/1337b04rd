@@ -1,15 +1,16 @@
 package domain
 
 import (
-	"1337b04rd/models"
 	"errors"
 	"fmt"
 	"io"
 	"math/rand"
+
+	"1337b04rd/models"
 )
 
 func (h *PostService) CreateComment(comment *models.Comment, filename_filedata map[string]io.Reader, sessiondID int) error {
-	anonID, err := h.retrieveAnonIDForComment(comment.PostID, sessiondID)
+	anonID, err := h.RetrieveAnonIDFromSession(comment.PostID, sessiondID)
 	if err != nil {
 		return err
 	}
@@ -64,7 +65,7 @@ func (h *PostService) CreateComment(comment *models.Comment, filename_filedata m
 	return h.posts.UpdateStatus(postID)
 }
 
-func (h *PostService) retrieveAnonIDForComment(postID int, sessionID int) (int, error) {
+func (h *PostService) RetrieveAnonIDFromSession(postID int, sessionID int) (int, error) {
 	// anonymous
 	if sessionID == 0 {
 		anon, err := h.constructNewAnon(postID)
@@ -76,7 +77,6 @@ func (h *PostService) retrieveAnonIDForComment(postID int, sessionID int) (int, 
 	}
 
 	session, err := h.sessions.GetByID(sessionID)
-
 	if err != nil {
 		return 0, err
 	}
@@ -90,7 +90,7 @@ func (h *PostService) retrieveAnonIDForComment(postID int, sessionID int) (int, 
 			return 0, err
 		}
 
-		err = h.uploadSessionID(postID, sessionID, anon.AnonID)
+		err = h.UploadSessionID(postID, sessionID, anon.AnonID)
 		if err != nil {
 			return 0, err
 		}
@@ -161,18 +161,29 @@ func (h *PostService) getAvatarForNewAnon(postID int) (string, error) {
 	return "", errors.New("no available avatars")
 }
 
-func (h *PostService) uploadSessionID(postID int, sessionID int, anonID int) error {
+func (h *PostService) UploadSessionID(postID int, sessionID int, anonID int) error {
 	session, err := h.sessions.GetByID(sessionID)
 	if err != nil {
 		return err
 	}
 	if session == nil {
-		session = &models.Session{SessionID: sessionID}
+		servicesLogger.Warn("session is nil", "sessionID", sessionID, "postID", postID, "anonID", anonID)
+		session = &models.Session{
+			SessionID: sessionID,
+			Sessions:  map[int]int{},
+		}
 		err = h.sessions.Create(session)
 		if err != nil {
 			return err
 		}
 	}
-	session.Sessions[postID] = anonID               // сохраняем в сессии id анона для этого поста
-	return h.sessions.UpdateSessionHistory(session) // обновляем сессию в репозитории
+	if session.Sessions == nil {
+		session.Sessions = make(map[int]int)
+	}
+	session.Sessions[postID] = anonID              // сохраняем в сессии id анона для этого поста
+	err = h.sessions.UpdateSessionHistory(session) // обновляем сессию в репозитории
+	if err != nil {
+		servicesLogger.Error("failed to upload new session to session history", "sessionID", sessionID, "postID", postID, "anonID", anonID)
+	}
+	return err
 }
