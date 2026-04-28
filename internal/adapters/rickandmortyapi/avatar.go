@@ -58,8 +58,8 @@ func fetchCharacters(url string) (map[int]string, error) {
 	var allCharacters []character
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	// for url != "" {
-	for range 1 {
+	for url != "" {
+		// for range 1 {
 		var resp *http.Response
 		var err error
 

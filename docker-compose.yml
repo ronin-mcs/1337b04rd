@@ -3,18 +3,19 @@ version: "3.9"
 services:
   app:
     build: .
-    volumes: 
-      - .:/app
-    command: go run ./cmd/
+    # volumes:
+    #   - .:/app
+    # command: go run ./cmd/
     container_name: 1337b04rd
     ports:
       - "8080:8080"
     depends_on:
-      - triple-s
       - postgres
+      - triple-s
     environment:
       S3_ENDPOINT: http://triple-s:9000
-      S3_Bucket: 1337b04rd
+      S3_PUBLIC_ENDPOINT: http://localhost:9000
+      S3_BUCKET: 1337b04rd
 
       DB_HOST: postgres
       DB_PORT: 5432
@@ -25,13 +26,12 @@ services:
       - app-network
 
   triple-s:
-    build: 
-      context: ./triple-s
+    build: ./triple-s
     container_name: triple-s
     ports:
       - "9000:9000"
     volumes:
-      - triple-s-data:/data
+      - triple-s-data:/app/data
     networks:
       - app-network
 
@@ -50,7 +50,6 @@ services:
       - "5432:5432"
     networks:
       - app-network
-
 
 volumes:
   triple-s-data:

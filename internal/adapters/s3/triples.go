@@ -17,16 +17,24 @@ import (
 var s3logger = slog.With("adapter", "s3storage")
 
 type S3Storage struct {
-	baseURL string
-	bucket  string
-	client  *http.Client
+	baseURL   string
+	publicURL string
+	bucket    string
+	client    *http.Client
 }
 
-func NewS3Storage(baseURL, bucket string) *S3Storage {
+func NewS3Storage(baseURL, publicURL, bucket string) *S3Storage {
+	baseURL = strings.TrimRight(baseURL, "/")
+	publicURL = strings.TrimRight(publicURL, "/")
+	if publicURL == "" {
+		publicURL = baseURL
+	}
+
 	return &S3Storage{
-		baseURL: strings.TrimRight(baseURL, "/"),
-		bucket:  bucket,
-		client:  &http.Client{Timeout: 10 * time.Second},
+		baseURL:   baseURL,
+		publicURL: publicURL,
+		bucket:    bucket,
+		client:    &http.Client{Timeout: 10 * time.Second},
 	}
 }
 
@@ -36,7 +44,11 @@ func (s *S3Storage) SaveFile(fileKey string, fileData io.Reader, contentType str
 		contentType = "application/octet-stream"
 	}
 
-	req, err := http.NewRequest(http.MethodPut, s.objectURL(fileKey), fileData)
+	if err := s.ensureBucket(context.Background()); err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPut, s.objectURL(s.baseURL, fileKey), fileData)
 	if err != nil {
 		s3logger.Error("failed to create request to save file", "fileKey", fileKey, "error", err)
 		return err
@@ -62,11 +74,11 @@ func (s *S3Storage) SaveFile(fileKey string, fileData io.Reader, contentType str
 }
 
 func (s *S3Storage) GetFileLink(fileKey string) (string, error) {
-	return s.objectURL(fileKey), nil
+	return s.objectURL(s.publicURL, fileKey), nil
 }
 
 func (s *S3Storage) DeleteFile(fileKey string) error {
-	req, err := http.NewRequest(http.MethodDelete, s.objectURL(fileKey), nil)
+	req, err := http.NewRequest(http.MethodDelete, s.objectURL(s.baseURL, fileKey), nil)
 	if err != nil {
 		s3logger.Error("failed to create request to delete file", "fileKey", fileKey, "error", err)
 		return err
@@ -88,6 +100,10 @@ func (s *S3Storage) DeleteFile(fileKey string) error {
 }
 
 func (s *S3Storage) EnsureBucket(ctx context.Context) error {
+	return s.ensureBucket(ctx)
+}
+
+func (s *S3Storage) ensureBucket(ctx context.Context) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, s.baseURL+"/"+url.PathEscape(s.bucket), nil)
 	if err != nil {
 		s3logger.Error("failed to create request to ensure bucket exists", "bucket", s.bucket, "error", err)
@@ -102,7 +118,7 @@ func (s *S3Storage) EnsureBucket(ctx context.Context) error {
 	defer resp.Body.Close()
 
 	switch resp.StatusCode {
-	case http.StatusOK, http.StatusConflict:
+	case http.StatusCreated, http.StatusConflict:
 		s3logger.Info("bucket ensured to exist", "bucket", s.bucket)
 		return nil
 	default:
@@ -111,11 +127,11 @@ func (s *S3Storage) EnsureBucket(ctx context.Context) error {
 	}
 }
 
-func (s *S3Storage) objectURL(fileKey string) string {
+func (s *S3Storage) objectURL(baseURL, fileKey string) string {
 	parts := strings.Split(fileKey, "/")
 	for i, part := range parts {
 		parts[i] = url.PathEscape(part)
 	}
-	url := s.baseURL + "/" + url.PathEscape(s.bucket) + "/" + strings.Join(parts, "_")
+	url := baseURL + "/" + url.PathEscape(s.bucket) + "/" + strings.Join(parts, "_")
 	return url
 }

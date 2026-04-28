@@ -37,25 +37,25 @@ func main() {
 	}
 	defer closeLogs()
 
-	// dsn := fmt.Sprintf(
-	// 	"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-	// 	os.Getenv("DB_HOST"),
-	// 	os.Getenv("DB_PORT"),
-	// 	os.Getenv("DB_USER"),
-	// 	os.Getenv("DB_PASSWORD"),
-	// 	os.Getenv("DB_NAME"),
-	// )
+	dsn := fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_PORT"),
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_NAME"),
+	)
 
 	// print(dsn)
 
-	// db, err := sql.Open("postgres", dsn)
-	db, err := sql.Open("postgres", "host=localhost port=5432 user=user password=password dbname=app sslmode=disable")
+	db, err := sql.Open("postgres", dsn)
+	// db, err := sql.Open("postgres", "host=localhost port=5432 user=user password=password dbname=app sslmode=disable")
 	if err != nil {
 		slog.Error("failed to open database", "error", err)
 		os.Exit(1)
 	}
 
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 100; i++ {
 		err = db.Ping()
 		if err == nil {
 			break
@@ -91,10 +91,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	// S3_ENDPOINT := os.Getenv("S3_ENDPOINT")
-	// S3_BUCKET := os.Getenv("S3_BUCKET")
-	// fileStorage := s3storage.NewS3Storage(S3_ENDPOINT, S3_BUCKET)
-	fileStorage := s3storage.NewS3Storage("http://localhost:9000", "1337b04rd")
+	S3_ENDPOINT := os.Getenv("S3_ENDPOINT")
+	S3_PUBLIC_ENDPOINT := os.Getenv("S3_PUBLIC_ENDPOINT")
+	S3_BUCKET := os.Getenv("S3_BUCKET")
+	fileStorage := s3storage.NewS3Storage(S3_ENDPOINT, S3_PUBLIC_ENDPOINT, S3_BUCKET)
+	// fileStorage := s3storage.NewS3Storage("http://localhost:9000", "http://localhost:9000", "1337b04rd")
 
 	postService := domain.NewPostService(avatarStorage, fileStorage, postRepo, commentRepo, anonRepo, sessions, attachmentsRepo)
 

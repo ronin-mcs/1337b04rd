@@ -10,14 +10,19 @@ import (
 )
 
 func TestS3StorageFileOperations(t *testing.T) {
-	var methods []string
+	var requests []string
 	var putContentType string
 	var putBody string
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		methods = append(methods, r.Method)
+		requests = append(requests, r.Method+" "+r.URL.EscapedPath())
 		switch r.Method {
 		case http.MethodPut:
+			if r.URL.EscapedPath() == "/bucket%20name" {
+				w.WriteHeader(http.StatusConflict)
+				return
+			}
+
 			putContentType = r.Header.Get("Content-Type")
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
@@ -33,7 +38,7 @@ func TestS3StorageFileOperations(t *testing.T) {
 	}))
 	defer server.Close()
 
-	storage := NewS3Storage(server.URL+"/", "bucket name")
+	storage := NewS3Storage(server.URL+"/", "https://public.test/files", "bucket name")
 	if err := storage.SaveFile("dir/file name.txt", strings.NewReader("hello"), ""); err != nil {
 		t.Fatalf("SaveFile() error = %v", err)
 	}
@@ -41,8 +46,13 @@ func TestS3StorageFileOperations(t *testing.T) {
 		t.Fatalf("DeleteFile() error = %v", err)
 	}
 
-	if len(methods) != 2 || methods[0] != http.MethodPut || methods[1] != http.MethodDelete {
-		t.Fatalf("methods = %v, want PUT then DELETE", methods)
+	wantRequests := []string{
+		"PUT /bucket%20name",
+		"PUT /bucket%20name/dir_file%20name.txt",
+		"DELETE /bucket%20name/dir_file%20name.txt",
+	}
+	if strings.Join(requests, "\n") != strings.Join(wantRequests, "\n") {
+		t.Fatalf("requests = %v, want %v", requests, wantRequests)
 	}
 	if putContentType != "application/octet-stream" {
 		t.Fatalf("content type = %q, want default", putContentType)
@@ -55,7 +65,7 @@ func TestS3StorageFileOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetFileLink() error = %v", err)
 	}
-	if !strings.Contains(link, "bucket%20name/dir_file%20name.txt") {
+	if link != "https://public.test/files/bucket%20name/dir_file%20name.txt" {
 		t.Fatalf("link = %q, want escaped bucket and key", link)
 	}
 }
@@ -69,7 +79,7 @@ func TestS3StorageEnsureBucket(t *testing.T) {
 	}))
 	defer server.Close()
 
-	storage := NewS3Storage(server.URL, "existing")
+	storage := NewS3Storage(server.URL, "", "existing")
 	if err := storage.EnsureBucket(context.Background()); err != nil {
 		t.Fatalf("EnsureBucket() error = %v", err)
 	}
