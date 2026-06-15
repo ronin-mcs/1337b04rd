@@ -53,7 +53,7 @@ docker compose up -d --build
 The application will be available at:
 
 ```text
-http://localhost:8080/posts
+http://localhost:8080/posts/create
 ```
 
 The `triple-s` service is exposed at:
