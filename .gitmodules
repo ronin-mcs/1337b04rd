@@ -1,3 +1,3 @@
 [submodule "triple-s"]
 	path = triple-s
-	url = ssh://git@git.platform.alem.school:2222/astokhtak/triple-s.git
+	url = ssh://git@github.com:ronin-mcs/triple-s.git
